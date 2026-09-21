@@ -1,0 +1,394 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Iniznet\Mahout\Db\Tests;
+
+use Iniznet\Mahout\Db\Contracts\SqlConnection;
+use Iniznet\Mahout\Db\DdlEmitter;
+use Iniznet\Mahout\Db\Identifier;
+use Iniznet\Mahout\Db\Internal\WordPressSchemaVersionStore;
+use Iniznet\Mahout\Db\Internal\WpdbConnection;
+use Iniznet\Mahout\Db\Internal\WpdbMigrationStore;
+use Iniznet\Mahout\Db\MigrationLedgerSchema;
+use Iniznet\Mahout\Db\MigrationList;
+use Iniznet\Mahout\Db\MigrationRunner;
+use Iniznet\Mahout\Db\Table;
+use Iniznet\Mahout\Db\Tests\Fixtures\FixtureSet;
+use Iniznet\Mahout\Db\Tests\Fixtures\NotesTable;
+use Iniznet\Mahout\Db\Tests\Fixtures\RecordingConnection;
+use Iniznet\Mahout\Kernel\Contracts\QuerySource;
+use Iniznet\Mahout\Kernel\Diagnostics;
+use Iniznet\Mahout\Kernel\Environment;
+
+/**
+ * The base test case for this package.
+ *
+ * Core's WP_UnitTestCase already wraps each test in a transaction and provides
+ * the factories. This class adds the three things the required tests need: the
+ * InnoDB assertion that runs before any test, a runner wired to the test
+ * database, and a cleanup that drops the tables a test created (DDL implicitly
+ * commits, so the per-test transaction cannot do it).
+ *
+ * @internal
+ */
+abstract class TestCase extends \WP_UnitTestCase
+{
+    public const string LEDGER_OPTION = 'mahout_db_schema_version';
+
+    public const int CODE_VERSION = 1;
+
+    private static bool $engineAsserted = false;
+
+    /** @var list<string> */
+    private array $createdTables = [];
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        self::assertConnectionIsInnoDB();
+
+        // The gate option is cleared before the test body as well as after it:
+        // DDL implicitly commits, so core's per-test transaction cannot be
+        // relied on to undo an option the previous test's migrations wrote.
+        \delete_option(self::LEDGER_OPTION);
+        $this->dropTable($this->ledgerName());
+    }
+
+    protected function tearDown(): void
+    {
+        // The option is deleted BEFORE any DDL runs, because DDL implicitly
+        // commits: a delete issued after the drop would happen inside the fresh
+        // transaction that core's tearDown() then rolls back, leaving the value
+        // this test wrote behind for the next one.
+        \delete_option(self::LEDGER_OPTION);
+        $this->dropCreatedTables();
+
+        parent::tearDown();
+    }
+
+    /**
+     * Deliverable 9: the connection's storage engine is asserted before any
+     * transactional test runs. A non-transactional engine makes every
+     * transaction assertion in this suite decorative.
+     */
+    private static function assertConnectionIsInnoDB(): void
+    {
+        if (self::$engineAsserted) {
+            return;
+        }
+
+        self::$engineAsserted = true;
+
+        global $wpdb;
+
+        self::assertSame(
+            'InnoDB',
+            $wpdb->get_var('SELECT @@default_storage_engine'),
+            'The test database must report InnoDB; a transaction assertion against another engine asserts nothing.',
+        );
+    }
+
+    protected function prefix(): string
+    {
+        global $wpdb;
+
+        return (string) $wpdb->prefix;
+    }
+
+    protected function charsetCollate(): string
+    {
+        global $wpdb;
+
+        return (string) $wpdb->get_charset_collate();
+    }
+
+    protected function ledger(): Table
+    {
+        return MigrationLedgerSchema::table($this->prefix(), $this->charsetCollate());
+    }
+
+    protected function ledgerName(): string
+    {
+        return $this->ledger()->name->value;
+    }
+
+    protected function connection(): WpdbConnection
+    {
+        global $wpdb;
+
+        return new WpdbConnection($wpdb);
+    }
+
+    protected function recording(?SqlConnection $inner = null): RecordingConnection
+    {
+        return new RecordingConnection($inner ?? $this->connection());
+    }
+
+    protected function ledgerStore(SqlConnection $connection): WpdbMigrationStore
+    {
+        return new WpdbMigrationStore($connection, new DdlEmitter(), $this->ledger());
+    }
+
+    protected function valueTable(): string
+    {
+        return NotesTable::nameFor($this->prefix())->value;
+    }
+
+    protected function metaTable(): string
+    {
+        return Identifier::prefixed($this->prefix(), 'fixture_meta')->value;
+    }
+
+    /**
+     * @param list<string> $keys
+     *
+     * @return list<\Iniznet\Mahout\Db\Contracts\Migration>
+     */
+    protected function fixtures(array $keys, SqlConnection $connection): array
+    {
+        return FixtureSet::of($keys, $connection, $this->prefix(), $this->charsetCollate());
+    }
+
+    protected function diagnostics(): Diagnostics
+    {
+        return new Diagnostics(
+            environment: new Environment(type: 'production', debug: false, developmentMode: false),
+            queries: new RecordingQuerySource(),
+        );
+    }
+
+    protected function notesTable(?SqlConnection $connection = null): NotesTable
+    {
+        return new NotesTable(
+            emitter: new DdlEmitter(),
+            name: NotesTable::nameFor($this->prefix()),
+            charsetCollate: $this->charsetCollate(),
+        );
+    }
+
+    /**
+     * @param list<\Iniznet\Mahout\Db\Contracts\Migration> $migrations
+     */
+    protected function runner(array $migrations, SqlConnection $connection, ?Diagnostics $diagnostics = null): MigrationRunner
+    {
+        return new MigrationRunner(
+            ledger: $this->ledgerStore($connection),
+            versions: new WordPressSchemaVersionStore(),
+            migrations: MigrationList::fromHookPayload($migrations),
+            codeVersion: self::CODE_VERSION,
+            diagnostics: $diagnostics ?? $this->diagnostics(),
+        );
+    }
+
+    /**
+     * Every statement wpdb ran since the start of the process, in order.
+     *
+     * SAVEQUERIES is defined by the bootstrap, so the run-path tests can prove
+     * "the lazy gate wrote nothing" against the real connection instead of a
+     * decorator the provider would not have accepted anyway.
+     *
+     * @return list<string>
+     */
+    protected function statements(): array
+    {
+        global $wpdb;
+
+        $statements = [];
+        foreach ((array) $wpdb->queries as $entry) {
+            $statements[] = \is_array($entry) ? (string) ($entry[0] ?? '') : (string) $entry;
+        }
+
+        return $statements;
+    }
+
+    protected function statementCount(): int
+    {
+        return \count($this->statements());
+    }
+
+    /**
+     * @return list<string>
+     */
+    protected function statementsSince(int $cursor): array
+    {
+        return \array_slice($this->statements(), $cursor);
+    }
+
+    /**
+     * The statements that touched the ledger, which is what a run path is
+     * proved to have avoided.
+     *
+     * @return list<string>
+     */
+    protected function ledgerStatementsSince(int $cursor): array
+    {
+        return \array_values(\array_filter(
+            $this->statementsSince($cursor),
+            static fn (string $statement): bool => str_contains($statement, 'mahout_migrations'),
+        ));
+    }
+
+    /**
+     * How many callbacks are attached to a hook. The run-path proof reads it
+     * around boot() to show which hooks the provider touched and which it did not.
+     */
+    protected function hookCount(string $tag): int
+    {
+        $hook = $GLOBALS['wp_filter'][$tag] ?? null;
+
+        if (!$hook instanceof \WP_Hook) {
+            return 0;
+        }
+
+        $total = 0;
+        foreach ($hook->callbacks as $callbacks) {
+            $total += \count($callbacks);
+        }
+
+        return $total;
+    }
+
+    protected function markCreated(Identifier ...$tables): void
+    {
+        foreach ($tables as $table) {
+            $this->createdTables[] = $table->value;
+        }
+    }
+
+    protected function dropTable(string $name): void
+    {
+        global $wpdb;
+
+        $wpdb->query('DROP TABLE IF EXISTS '.$name);
+    }
+
+    /** @return list<string> */
+    protected function indexNames(string $table): array
+    {
+        global $wpdb;
+
+        $rows = $wpdb->get_results('SHOW INDEX FROM '.$table, ARRAY_A);
+
+        $names = [];
+        foreach ((array) $rows as $row) {
+            $name = $row['Key_name'] ?? null;
+            if (is_string($name) && !in_array($name, $names, true)) {
+                $names[] = $name;
+            }
+        }
+
+        sort($names);
+
+        return $names;
+    }
+
+    /** @return list<string> */
+    protected function columnNames(string $table): array
+    {
+        global $wpdb;
+
+        $rows = $wpdb->get_results('SHOW COLUMNS FROM '.$table, ARRAY_A);
+
+        $names = [];
+        foreach ((array) $rows as $row) {
+            $name = $row['Field'] ?? null;
+            if (is_string($name)) {
+                $names[] = $name;
+            }
+        }
+
+        sort($names);
+
+        return $names;
+    }
+
+    protected function tableExists(string $table): bool
+    {
+        global $wpdb;
+
+        return (string) $wpdb->get_var($wpdb->prepare(
+            'SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s LIMIT 1',
+            $table,
+        )) === $table;
+    }
+
+    protected function tableEngine(string $table): ?string
+    {
+        global $wpdb;
+
+        $row = $wpdb->get_row($wpdb->prepare(
+            'SELECT ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s LIMIT 1',
+            $table,
+        ), ARRAY_A);
+
+        $engine = is_array($row) ? ($row['ENGINE'] ?? null) : null;
+
+        return is_string($engine) ? $engine : null;
+    }
+
+    /**
+     * DDL implicitly commits, so the per-test transaction cannot undo a table
+     * this suite created. Every table a fixture can leave behind is dropped
+     * here, deterministically, before the next test starts.
+     */
+    private function dropCreatedTables(): void
+    {
+        $tables = [
+            $this->ledgerName(),
+            $this->valueTable(),
+            $this->metaTable(),
+            $this->prefix().'fixture_myisam',
+            $this->prefix().'sql_connection_probe',
+            ...$this->createdTables,
+        ];
+
+        foreach ($tables as $table) {
+            $this->dropTable($table);
+        }
+
+        $this->createdTables = [];
+    }
+
+    /**
+     * Run a probe that is expected to make the database complain, without that
+     * complaint failing the suite as unexpected output.
+     *
+     * @template T
+     *
+     * @param callable(): T $probe
+     *
+     * @return T
+     */
+    protected function silencingDatabaseErrors(callable $probe): mixed
+    {
+        global $wpdb;
+
+        $previous = $wpdb->suppress_errors(true);
+
+        try {
+            return $probe();
+        } finally {
+            $wpdb->suppress_errors($previous);
+        }
+    }
+}
+
+/**
+ * A query source that counts nothing. Diagnostics only reads it for a span.
+ *
+ * @internal
+ */
+final class RecordingQuerySource implements QuerySource
+{
+    public function count(): int
+    {
+        return 0;
+    }
+
+    public function statements(): array
+    {
+        return [];
+    }
+}

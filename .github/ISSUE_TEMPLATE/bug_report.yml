@@ -1,0 +1,54 @@
+name: Bug report
+description: Report a defect in mahout-db.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not report a security vulnerability here. Use private vulnerability
+        reporting from the Security tab.
+  - type: input
+    id: version
+    attributes:
+      label: mahout-db version
+      description: The installed version or commit.
+      placeholder: 1.0.0
+    validations:
+      required: true
+  - type: input
+    id: wordpress
+    attributes:
+      label: WordPress version
+      placeholder: "7.1.1"
+    validations:
+      required: true
+  - type: input
+    id: php
+    attributes:
+      label: PHP version
+      placeholder: "8.4.20"
+    validations:
+      required: true
+  - type: input
+    id: database
+    attributes:
+      label: Database server and storage engine
+      description: The MySQL or MariaDB version, and the engine the affected table reports.
+      placeholder: "MySQL 8.0.36, InnoDB"
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: The observed behaviour, and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Include the exact command and its output. For a failed migration, include the migration's name and the ledger rows around it.
+    validations:
+      required: true

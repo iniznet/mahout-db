@@ -1,0 +1,7 @@
+includes:
+	- phpstan.neon
+parameters:
+	level: 0
+	tmpDir: .phpstan-fixtures-cache
+	paths:
+		- fixtures/architecture

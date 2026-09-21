@@ -1,0 +1,5 @@
+includes:
+	- vendor/iniznet/mahout-devtools/phpstan.neon
+parameters:
+	paths:
+		- src

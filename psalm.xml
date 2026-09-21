@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<psalm
+	errorLevel="1"
+	resolveFromConfigFile="true"
+	xmlns="https://getpsalm.org/schema/config"
+>
+	<projectFiles>
+		<directory name="src" />
+	</projectFiles>
+	<stubs>
+		<file name="vendor/iniznet/mahout-devtools/stubs/wordpress-stubs.php" />
+	</stubs>
+</psalm>

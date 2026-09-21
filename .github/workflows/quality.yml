@@ -1,0 +1,97 @@
+name: Quality
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: PHP 8.4
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+          MYSQL_DATABASE: modernwp_tests
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          extensions: json, hash, mysqli
+          tools: composer
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Format check
+        run: composer format:check
+
+      - name: PHPStan and architecture rules
+        run: |
+          composer stan
+          composer arch
+
+      - name: Psalm taint
+        run: composer psalm
+
+      - name: Rector dry-run
+        run: composer rector
+
+      - name: Divergence and artifact set
+        run: composer config:check
+
+      - name: Check out the core test library
+        run: |
+          git clone --depth 1 --branch 7.1.1 --filter=blob:none --sparse \
+            https://github.com/WordPress/wordpress-develop.git "${RUNNER_TEMP}/wordpress-develop"
+          git -C "${RUNNER_TEMP}/wordpress-develop" sparse-checkout set tests/phpunit
+
+      - name: Write the test configuration
+        run: |
+          cat > "${RUNNER_TEMP}/wp-tests-config.php" <<'CONFIG'
+          <?php
+          define( 'ABSPATH', getenv( 'WP_CORE_ROOT' ) . '/' );
+          define( 'WP_DEFAULT_THEME', 'twentytwentyfour' );
+          define( 'DB_NAME', 'modernwp_tests' );
+          define( 'DB_USER', 'root' );
+          define( 'DB_PASSWORD', '' );
+          define( 'DB_HOST', '127.0.0.1' );
+          define( 'DB_CHARSET', 'utf8mb4' );
+          define( 'DB_COLLATE', '' );
+          define( 'AUTH_KEY', 'ci' );
+          define( 'SECURE_AUTH_KEY', 'ci' );
+          define( 'LOGGED_IN_KEY', 'ci' );
+          define( 'NONCE_KEY', 'ci' );
+          define( 'AUTH_SALT', 'ci' );
+          define( 'SECURE_AUTH_SALT', 'ci' );
+          define( 'LOGGED_IN_SALT', 'ci' );
+          define( 'NONCE_SALT', 'ci' );
+          $table_prefix = 'wptests_';
+          CONFIG
+
+      - name: PHPUnit
+        run: composer test
+        env:
+          WP_TESTS_DIR: ${{ runner.temp }}/wordpress-develop/tests/phpunit
+          WP_TESTS_CONFIG_FILE_PATH: ${{ runner.temp }}/wp-tests-config.php
+
+      - name: Hook and translation references
+        run: |
+          composer hooks:check
+          composer i18n:check

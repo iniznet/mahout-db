@@ -1,0 +1,35 @@
+name: Feature request
+description: Propose a change, and say which repository owns the surface.
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What cannot be done today.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: The proposal
+      description: The smallest change that solves it.
+    validations:
+      required: true
+  - type: dropdown
+    id: routing
+    attributes:
+      label: Which repository owns this surface
+      options:
+        - iniznet/mahout-devtools
+        - iniznet/mahout-kernel
+        - iniznet/mahout-assets
+        - iniznet/mahout-db
+        - iniznet/mahout-content
+        - iniznet/mahout-fields
+        - iniznet/mahout-scaffold
+        - iniznet/howdah
+        - It spans repositories, so it is a contract change
+    validations:
+      required: true
