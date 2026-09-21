@@ -36,6 +36,10 @@ abstract class TestCase extends \WP_UnitTestCase
 {
     public const string LEDGER_OPTION = 'mahout_db_schema_version';
 
+    public const string SEARCH_OPTION = 'mahout_db_search_index';
+
+    public const string SWEEP_OPTION = 'mahout_db_sweep_cursors';
+
     public const int CODE_VERSION = 1;
 
     private static bool $engineAsserted = false;
@@ -53,6 +57,8 @@ abstract class TestCase extends \WP_UnitTestCase
         // DDL implicitly commits, so core's per-test transaction cannot be
         // relied on to undo an option the previous test's migrations wrote.
         \delete_option(self::LEDGER_OPTION);
+        \delete_option(self::SEARCH_OPTION);
+        \delete_option(self::SWEEP_OPTION);
         $this->dropTable($this->ledgerName());
     }
 
@@ -63,9 +69,26 @@ abstract class TestCase extends \WP_UnitTestCase
         // transaction that core's tearDown() then rolls back, leaving the value
         // this test wrote behind for the next one.
         \delete_option(self::LEDGER_OPTION);
+        \delete_option(self::SEARCH_OPTION);
+        \delete_option(self::SWEEP_OPTION);
+        $this->dropSearchIndex();
         $this->dropCreatedTables();
 
         parent::tearDown();
+    }
+
+    /**
+     * The migration test adds the search index to core's own posts table; DDL
+     * implicitly commits, so the per-test transaction cannot undo it.
+     */
+    protected function dropSearchIndex(): void
+    {
+        global $wpdb;
+
+        $rows = $wpdb->get_results('SHOW INDEX FROM '.$wpdb->posts.' WHERE Key_name = '."'howdah_search'", ARRAY_A);
+        if ([] !== (array) $rows) {
+            $wpdb->query('ALTER TABLE '.$wpdb->posts.' DROP INDEX howdah_search');
+        }
     }
 
     /**
@@ -340,6 +363,7 @@ abstract class TestCase extends \WP_UnitTestCase
             $this->valueTable(),
             $this->metaTable(),
             $this->prefix().'fixture_myisam',
+            $this->prefix().'fixture_orphans',
             $this->prefix().'sql_connection_probe',
             ...$this->createdTables,
         ];

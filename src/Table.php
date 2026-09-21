@@ -6,6 +6,7 @@ namespace Iniznet\Mahout\Db;
 
 use Iniznet\Mahout\Db\Exception\InvalidIndex;
 use Iniznet\Mahout\Db\Exception\InvalidTable;
+use Iniznet\Mahout\Db\Exception\UnknownColumn;
 
 /**
  * A declared table: its name (prefix already applied), its columns, its indexes,
@@ -77,5 +78,42 @@ final readonly class Table
                 throw InvalidTable::autoIncrementWithoutKey($this->name->value, $column->name->value);
             }
         }
+    }
+
+    public function hasColumn(string $name): bool
+    {
+        return \array_any(
+            $this->columns,
+            static fn (Column $column): bool => $column->name->value === $name,
+        );
+    }
+
+    /** The declared column with this name, or a loud refusal. */
+    public function column(string $name): Column
+    {
+        foreach ($this->columns as $column) {
+            if ($column->name->value === $name) {
+                return $column;
+            }
+        }
+
+        throw UnknownColumn::inTable($this->name->value, $name);
+    }
+
+    /**
+     * The declared primary key's columns, in index order, or an empty list for
+     * a table that declares no primary key.
+     *
+     * @return list<string>
+     */
+    public function primaryKeyColumns(): array
+    {
+        foreach ($this->indexes as $index) {
+            if (IndexKind::Primary === $index->kind) {
+                return $index->columnNames();
+            }
+        }
+
+        return [];
     }
 }

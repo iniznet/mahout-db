@@ -92,9 +92,8 @@ final class IndexPresenceTest extends TestCase
     }
 
     /**
-     * The search index is declared and emitted here but is NOT created in this
-     * slice: it belongs to the slice that owns the tokeniser and the fallback,
-     * and this slice must not touch core's wp_posts.
+     * The search index's declaration names exactly the MATCH columns. Creation
+     * is AddSearchIndex's; this test fixes the column list both share.
      */
     public function testTheSearchIndexDeclarationNamesExactlyTheMatchColumns(): void
     {
@@ -117,7 +116,7 @@ final class IndexPresenceTest extends TestCase
         );
     }
 
-    public function testThisSliceAddsNoIndexToCoresPostTable(): void
+    public function testNoLeftoverSearchIndexIsOnCoresPostTable(): void
     {
         global $wpdb;
 

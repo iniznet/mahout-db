@@ -10,6 +10,8 @@ use Iniznet\Mahout\Db\Exception\InvalidColumn;
 use Iniznet\Mahout\Db\Exception\InvalidIdentifier;
 use Iniznet\Mahout\Db\Exception\InvalidIndex;
 use Iniznet\Mahout\Db\Exception\InvalidMigrationList;
+use Iniznet\Mahout\Db\Exception\InvalidOrphanSourceList;
+use Iniznet\Mahout\Db\Exception\InvalidRow;
 use Iniznet\Mahout\Db\Exception\InvalidSchemaVersion;
 use Iniznet\Mahout\Db\Exception\InvalidTable;
 use Iniznet\Mahout\Db\Exception\MahoutException;
@@ -19,6 +21,8 @@ use Iniznet\Mahout\Db\Exception\MigrationMissing;
 use Iniznet\Mahout\Db\Exception\MigrationNameCollision;
 use Iniznet\Mahout\Db\Exception\MigrationRollbackRefused;
 use Iniznet\Mahout\Db\Exception\StatementFailed;
+use Iniznet\Mahout\Db\Exception\UnboundedStatement;
+use Iniznet\Mahout\Db\Exception\UnknownColumn;
 use Iniznet\Mahout\Db\Tests\TestCase;
 
 /**
@@ -181,6 +185,40 @@ final class ExceptionTest extends TestCase
         }
     }
 
+    public function testAnUnknownColumnCarriesItsTableAndColumn(): void
+    {
+        $failure = UnknownColumn::inTable('fixture', 'missing');
+
+        self::assertSame('fixture', $failure->table());
+        self::assertSame('missing', $failure->column());
+        self::assertStringContainsString('missing', $failure->getMessage());
+        self::assertSame('fixture', UnknownColumn::inRow('fixture', 'missing')->table());
+    }
+
+    public function testAnUnboundedStatementCarriesItsTable(): void
+    {
+        $failure = UnboundedStatement::forTable('fixture_field_values');
+
+        self::assertSame('fixture_field_values', $failure->table());
+        self::assertStringContainsString('neither a LIMIT nor a primary-key equality', $failure->getMessage());
+        self::assertSame('fixture_field_values', UnboundedStatement::forLimit('fixture_field_values', 0)->table());
+    }
+
+    public function testAnInvalidRowCarriesItsTableOrTheLimitItRefused(): void
+    {
+        self::assertSame('fixture', InvalidRow::emptyValues('fixture')->table());
+        self::assertSame('expected', InvalidRow::wrongTable('given', 'expected')->table());
+        self::assertSame('fixture', InvalidRow::missingPrimaryKey('fixture')->table());
+        self::assertStringContainsString('0', InvalidRow::nonPositiveLimit(0)->getMessage());
+    }
+
+    public function testAnInvalidOrphanSourceListNamesTheHookThatSuppliedIt(): void
+    {
+        self::assertSame('mahout/db/orphan_sources', InvalidOrphanSourceList::notAList('mahout/db/orphan_sources')->hook());
+        self::assertSame('mahout/db/orphan_sources', InvalidOrphanSourceList::notASource('mahout/db/orphan_sources')->hook());
+        self::assertInstanceOf(\UnexpectedValueException::class, InvalidOrphanSourceList::notAList('x'));
+    }
+
     public function testAMigrationListRejectionNamesTheHookThatSuppliedIt(): void
     {
         self::assertStringContainsString(
@@ -222,6 +260,12 @@ final class ExceptionTest extends TestCase
             'InvalidIndex::prefixLength' => static fn (): \Throwable => InvalidIndex::prefixLength('c', 192),
             'InvalidIndex::unknownColumn' => static fn (): \Throwable => InvalidIndex::unknownColumn('i', 'c'),
             'InvalidMigrationList::notAList' => static fn (): \Throwable => InvalidMigrationList::notAList('mahout/db/migrations'),
+            'InvalidOrphanSourceList::notAList' => static fn (): \Throwable => InvalidOrphanSourceList::notAList('mahout/db/orphan_sources'),
+            'InvalidOrphanSourceList::notASource' => static fn (): \Throwable => InvalidOrphanSourceList::notASource('mahout/db/orphan_sources'),
+            'InvalidRow::emptyValues' => static fn (): \Throwable => InvalidRow::emptyValues('t'),
+            'InvalidRow::wrongTable' => static fn (): \Throwable => InvalidRow::wrongTable('a', 'b'),
+            'InvalidRow::missingPrimaryKey' => static fn (): \Throwable => InvalidRow::missingPrimaryKey('t'),
+            'InvalidRow::nonPositiveLimit' => static fn (): \Throwable => InvalidRow::nonPositiveLimit(0),
             'InvalidMigrationList::notAMigration' => static fn (): \Throwable => InvalidMigrationList::notAMigration('mahout/db/migrations'),
             'InvalidSchemaVersion::notAnInteger' => static fn (): \Throwable => InvalidSchemaVersion::notAnInteger('mahout/db/schema_version'),
             'InvalidTable::noColumns' => static fn (): \Throwable => InvalidTable::noColumns('t'),
@@ -237,6 +281,10 @@ final class ExceptionTest extends TestCase
             'MigrationRollbackRefused::forMigrations' => static fn (): \Throwable => MigrationRollbackRefused::forMigrations(['m']),
             'StatementFailed::forStatement' => static fn (): \Throwable => StatementFailed::forStatement('s', 'e'),
             'StatementFailed::unreadableResult' => static fn (): \Throwable => StatementFailed::unreadableResult('s'),
+            'UnknownColumn::inTable' => static fn (): \Throwable => UnknownColumn::inTable('t', 'c'),
+            'UnknownColumn::inRow' => static fn (): \Throwable => UnknownColumn::inRow('t', 'c'),
+            'UnboundedStatement::forTable' => static fn (): \Throwable => UnboundedStatement::forTable('t'),
+            'UnboundedStatement::forLimit' => static fn (): \Throwable => UnboundedStatement::forLimit('t', 0),
         ];
     }
 }

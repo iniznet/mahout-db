@@ -33,6 +33,23 @@ order. The format follows Semantic Versioning; a major entry names each removal.
   statement and a transaction statement outside the gateway, including the
   prefixed (`wptests_howdah_values`) and interpolated
   (`"{$wpdb->prefix}howdah_readthrough"`) forms of a real table name.
+- `Contracts` `TableGateway` and `Internal` `WpdbTableGateway`: the typed reads
+  and writes, and the one owner of `START TRANSACTION`, `COMMIT` and
+  `ROLLBACK`. A nested `transactional()` call joins the open transaction.
+- `Row` and `GatewayQuery`: a typed row and a predicate that is bounded by
+  construction, with neither a `LIMIT` nor a primary-key equality refused
+  (STO-22's runtime floor).
+- `SearchIndex`, `AddSearchIndex`, `Contracts` `SearchIndexPresence` and
+  `Internal` `OptionSearchIndexPresence`: the `FULLTEXT` index migration on
+  core's posts table and its presence cached in one non-autoloaded option.
+- `OrphanSweep`, `OrphanCollector`, `SweepRun`, `Contracts` `OrphanSource` and
+  `Contracts` `SweepCursor`: the keyed delete on `deleted_post` and the
+  chunked, resumable, runtime-capped sweep, with a tombstone surviving both.
+- The `mahout/db/orphan_sources` filter, the `mahout/db/orphans_collected`
+  action, and the provider's observation of `deleted_post` and
+  `mahout/db/gc`.
+- New exceptions `UnknownColumn`, `UnboundedStatement`, `InvalidRow` and
+  `InvalidOrphanSourceList`.
 
 ### Changed
 
@@ -42,6 +59,10 @@ order. The format follows Semantic Versioning; a major entry names each removal.
   container, so nothing outside the package has to name an `Internal` class to
   receive one. ADR-0004 is corrected: reading the connection from WordPress is
   unchanged, but the reason it cited is gone.
+- The transaction boundary and the search index are this package's, not
+  `iniznet/mahout-fields`'s. The 4a package section placed them in a later
+  slice; the roadmap's Phase 4 deliverable and the change-routing rule do not.
+  Recorded as ADR-0006.
 - `MigrationRollbackRefused` says what it means again: "The rollback is refused
   before any statement runs: ... cannot be rolled back." The message had been
   reworded to "reversal"/"cannot be reversed" to dodge an architecture rule that

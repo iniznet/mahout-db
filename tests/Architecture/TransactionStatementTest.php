@@ -27,16 +27,18 @@ use Iniznet\Mahout\Devtools\Rules\TransactionOnlyInGatewayRule;
  */
 final class TransactionStatementTest extends TestCase
 {
-    public function testNoStringLiteralInTheSourceIsATransactionStatement(): void
+    public function testEveryTransactionStatementInTheSourceLivesInTheGateway(): void
     {
+        $carriers = [];
         foreach ($this->sourceFiles() as $file) {
             foreach ($this->stringLiterals($file) as $literal) {
-                self::assertFalse(
-                    $this->isTransactionStatement($literal),
-                    $file.' carries the literal '.$literal,
-                );
+                if ($this->isTransactionStatement($literal)) {
+                    $carriers[\basename($file)] = true;
+                }
             }
         }
+
+        self::assertSame(['WpdbTableGateway.php'], \array_keys($carriers));
     }
 
     public function testTheMatcherCatchesAStatementInStatementPosition(): void

@@ -2,11 +2,12 @@
 
 ## What it is
 
-Schema objects, explicit DDL, the migration runner and its ledger. It owns
-table declarations, the one place that emits a `CREATE TABLE`, the migration
-plan, the run paths a migration is allowed to travel, and the ledger that
-records what has run. It owns no field type, no content type and no query
-builder.
+Schema objects, explicit DDL, the migration runner and its ledger, and the
+typed table gateway with the transaction boundary. It owns table declarations,
+the one place that emits a `CREATE TABLE`, the migration plan, the run paths a
+migration is allowed to travel, the ledger that records what has run, the
+search index migration and its cached presence, and orphan collection. It owns
+no field type, no content type and no field query builder.
 
 ## Installation
 
@@ -42,10 +43,16 @@ is `@internal` and may change in a patch release.
 | `MigrationStore` | the ledger: existence, bootstrap, application order, batch membership, record and forget | `WpdbMigrationStore` |
 | `SchemaVersionStore` | the stored schema version: `stored()`, `record()` | `WordPressSchemaVersionStore` |
 | `SqlConnection` | the database boundary: `execute()`, `executePrepared()`, `rows()`, `rowsPrepared()`, `prefix()`, `charsetCollate()` | `WpdbConnection` |
+| `TableGateway` | the typed read/write boundary and the transaction: `transactional()`, `select()`, `insert()`, `upsert()`, `update()`, `delete()`, `deleteMany()`, `chunk()` | `WpdbTableGateway` |
+| `SearchIndexPresence` | whether the search index exists: `present()` (option only), `refresh()` (one schema read) | `OptionSearchIndexPresence` |
+| `OrphanSource` | a table whose rows can outlive their posts | the consumer's value object |
+| `SweepCursor` | the resumable position of an orphan sweep, by table | `OptionSweepCursor` |
 
 `SqlConnection` deliberately carries no transaction method. The transaction
-boundary has exactly one owner, and that owner is the table gateway in
-`iniznet/mahout-fields`, never a connection and never a migration.
+boundary has exactly one owner, `Contracts\TableGateway`, and its one
+implementation is `WpdbTableGateway`, never a connection and never a
+migration. The implementation is the only class in the package that issues
+`START TRANSACTION`, `COMMIT` or `ROLLBACK`.
 
 ## Declaring a table
 
@@ -217,6 +224,49 @@ Two properties are load-bearing:
 2. **The stored version is written only after the whole batch committed**, so a
    partially applied batch never records a version it has not reached.
 
+## The typed table gateway
+
+Every read and write against a declared table goes through `Contracts\TableGateway`.
+Identifiers are never parameters, so the gateway takes the declared `Table` and
+a value object keyed by its columns; every quoted identifier is read back from
+the schema object.
+
+```php
+use Iniznet\Mahout\Db\GatewayQuery;
+use Iniznet\Mahout\Db\Row;
+
+$key = Row::of($values, ['object_kind' => 1, 'object_id' => 7, 'field_id' => 'isbn']);
+
+$gateway->transactional(function () use ($gateway, $values, $key): void {
+    $gateway->upsert(Row::of($values, [...$key->values(), 'value_text' => '978']));
+    $gateway->delete(GatewayQuery::keyed($key));
+});
+```
+
+`GatewayQuery` has no unbounded form. A keyed query must cover a non-empty
+leading prefix of the declared primary key, or a query must declare a `LIMIT`;
+anything else throws `UnboundedStatement` before a statement can exist. That is
+STO-22's runtime floor, and it is the half an architecture rule cannot see when
+a table name reaches a statement as a runtime value.
+
+A nested `transactional()` call joins the open transaction rather than issuing
+`START TRANSACTION` again. A failed statement rolls the whole group back,
+substitutes nothing and retries nothing.
+
+## The search index and orphan collection
+
+`AddSearchIndex` adds `FULLTEXT KEY howdah_search (post_title, post_excerpt,
+post_content)` to the site's posts table and `down()` drops it. Presence is
+never queried on a request path: `OptionSearchIndexPresence::refresh()` makes
+the one `information_schema.STATISTICS` read and writes a non-autoloaded option,
+and `present()` is an option read. The provider refreshes it on
+`mahout/db/after_migrate`.
+
+`OrphanCollector` is the keyed delete for a deleted post; `OrphanSweep` is the
+chunked, resumable, runtime-capped sweep. Both emit `mahout/db/orphans_collected`.
+A consumer registers an `OrphanSource` through the `mahout/db/orphan_sources`
+filter, and the theme schedules `mahout/db/gc`.
+
 ## Documented public concrete classes
 
 Every documented public class is part of the stable surface within a major.
@@ -236,6 +286,10 @@ Every documented public class is part of the stable surface within a major.
 | `MigrationRunner` | plan, apply, reverse, report |
 | `MigrationList` | the registered migrations, in order, with unique names |
 | `MigrationPlan`, `RollbackPlan`, `MigrationRun`, `MigrationStatus` | what a command reports |
+| `Row`, `GatewayQuery` | a typed row and a bounded predicate for the table gateway |
+| `SearchIndex` | the `howdah_search` index declaration and its `ADD`/`DROP` statements |
+| `AddSearchIndex` | the migration that adds and drops the search index |
+| `OrphanSweep`, `OrphanCollector`, `SweepRun` | the chunked sweep, the immediate keyed delete, and what a sweep did |
 | `SchemaVersion` | the code version and the stored version, side by side |
 | `RunContext`, `RunPath` | the facts that decide whether a run path may proceed |
 | `Capabilities` | the one capability a run path checks |
@@ -249,9 +303,12 @@ constructor that carries typed context.
 ## Hooks
 
 `mahout/db/migrations` filters the registered set; `mahout/db/schema_version`
-filters the code's version. `mahout/db/before_migrate`,
-`mahout/db/after_migrate` and `mahout/db/migration_failed` report a run. The
-generated reference is `docs/reference/hooks.md`.
+filters the code's version; `mahout/db/orphan_sources` filters the collection
+sources. `mahout/db/before_migrate`, `mahout/db/after_migrate` and
+`mahout/db/migration_failed` report a run; `mahout/db/orphans_collected`
+reports a collection. The provider also observes core's `deleted_post` and the
+package's own `mahout/db/gc`. The generated reference is
+`docs/reference/hooks.md`.
 
 ## Compatibility
 
@@ -269,8 +326,9 @@ generated reference is `docs/reference/hooks.md`.
 `WpdbConnection` is the only class in the package that names `$wpdb`, and
 `DbProvider` is the only class that names `WpdbConnection`. Everything above
 them is WordPress-blind: the emitter produces a string, the runner talks to
-`MigrationStore`, `SchemaVersionStore` and `Migration`, and the ledger store
-talks to `SqlConnection`.
+`MigrationStore`, `SchemaVersionStore` and `Migration`, the ledger store and
+the table gateway talk to `SqlConnection`, and `WpdbTableGateway` is the one
+owner of the transaction statement.
 
 Every statement the ledger issues is bounded: a primary-key or unique-key
 equality, an aggregate over an indexed column, or a `LIMIT 1` existence probe.

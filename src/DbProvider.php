@@ -5,13 +5,21 @@ declare(strict_types=1);
 namespace Iniznet\Mahout\Db;
 
 use Iniznet\Mahout\Db\Contracts\MigrationStore;
+use Iniznet\Mahout\Db\Contracts\OrphanSource;
 use Iniznet\Mahout\Db\Contracts\SchemaVersionStore;
+use Iniznet\Mahout\Db\Contracts\SearchIndexPresence;
 use Iniznet\Mahout\Db\Contracts\SqlConnection;
+use Iniznet\Mahout\Db\Contracts\SweepCursor;
+use Iniznet\Mahout\Db\Contracts\TableGateway;
 use Iniznet\Mahout\Db\Exception\InvalidMigrationList;
+use Iniznet\Mahout\Db\Exception\InvalidOrphanSourceList;
 use Iniznet\Mahout\Db\Exception\InvalidSchemaVersion;
+use Iniznet\Mahout\Db\Internal\OptionSearchIndexPresence;
+use Iniznet\Mahout\Db\Internal\OptionSweepCursor;
 use Iniznet\Mahout\Db\Internal\WordPressSchemaVersionStore;
 use Iniznet\Mahout\Db\Internal\WpdbConnection;
 use Iniznet\Mahout\Db\Internal\WpdbMigrationStore;
+use Iniznet\Mahout\Db\Internal\WpdbTableGateway;
 use Iniznet\Mahout\Kernel\Container;
 use Iniznet\Mahout\Kernel\Contracts\ServiceProvider;
 use Iniznet\Mahout\Kernel\Diagnostics;
@@ -44,6 +52,8 @@ final class DbProvider implements ServiceProvider
 
     private const int LAZY_PRIORITY = 20;
 
+    private const int ORPHAN_PRIORITY = 20;
+
     public function register(Container $container): void
     {
         $connection = WpdbConnection::inWordPress();
@@ -55,6 +65,12 @@ final class DbProvider implements ServiceProvider
         $container->set(service: $connection, id: SqlConnection::class);
         $container->set(service: new WpdbMigrationStore($connection, $emitter, $ledger), id: MigrationStore::class);
         $container->set(service: new WordPressSchemaVersionStore(), id: SchemaVersionStore::class);
+        $container->set(service: new WpdbTableGateway($connection), id: TableGateway::class);
+        $container->set(
+            service: new OptionSearchIndexPresence($connection, SearchIndex::onPosts($connection->prefix())),
+            id: SearchIndexPresence::class,
+        );
+        $container->set(service: new OptionSweepCursor(), id: SweepCursor::class);
         $container->set($emitter);
     }
 
@@ -74,6 +90,79 @@ final class DbProvider implements ServiceProvider
 
         $this->attachThemeSwitch($runner);
         $this->attachLazy($runner);
+        $this->attachSearchIndexRefresh($container->get(SearchIndexPresence::class));
+        $this->attachOrphans($container);
+    }
+
+    /**
+     * The presence option is invalidated once per migration, off a request path.
+     */
+    private function attachSearchIndexRefresh(SearchIndexPresence $presence): void
+    {
+        \add_action(
+            Hooks::AFTER_MIGRATE,
+            static function () use ($presence): void {
+                $presence->refresh();
+            },
+            priority: self::ORPHAN_PRIORITY,
+            accepted_args: 0,
+        );
+    }
+
+    /**
+     * The two orphan paths: the keyed delete on a post deletion, and the
+     * chunked sweep on this package's own action. Scheduling the sweep is the
+     * theme's job; it never runs on a request path.
+     */
+    private function attachOrphans(Container $container): void
+    {
+        $gateway = $container->get(TableGateway::class);
+        $diagnostics = $container->get(Diagnostics::class);
+        $sweep = new OrphanSweep($gateway, $container->get(SweepCursor::class), $diagnostics);
+        $collector = new OrphanCollector($gateway, $diagnostics);
+
+        \add_action(
+            Hooks::DELETED_POST,
+            static function (int $postId) use ($collector): void {
+                $collector->forPost($postId, self::orphanSources());
+            },
+            priority: self::ORPHAN_PRIORITY,
+            accepted_args: 1,
+        );
+
+        \add_action(
+            Hooks::GC,
+            static function () use ($sweep): void {
+                foreach (self::orphanSources() as $source) {
+                    $sweep->sweep($source);
+                }
+            },
+            priority: self::ORPHAN_PRIORITY,
+            accepted_args: 0,
+        );
+    }
+
+    /**
+     * @return list<OrphanSource>
+     */
+    private static function orphanSources(): array
+    {
+        $declared = \apply_filters(Hooks::ORPHAN_SOURCES, []);
+
+        if (!\is_array($declared)) {
+            throw InvalidOrphanSourceList::notAList(Hooks::ORPHAN_SOURCES);
+        }
+
+        $sources = [];
+        foreach ($declared as $source) {
+            if (!$source instanceof OrphanSource) {
+                throw InvalidOrphanSourceList::notASource(Hooks::ORPHAN_SOURCES);
+            }
+
+            $sources[] = $source;
+        }
+
+        return $sources;
     }
 
     /**

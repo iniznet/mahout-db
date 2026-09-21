@@ -202,9 +202,12 @@ neither target: constants or environment only.
 
 ### Data integrity
 
-- Any transaction statement belongs to the table gateway in
-  `iniznet/mahout-fields`. This package declares no transaction method on
-  `SqlConnection` and executes none.
+- `Contracts\TableGateway` is the transaction boundary, and
+  `WpdbTableGateway` is its one implementation and the only class that issues
+  `START TRANSACTION`, `COMMIT` or `ROLLBACK`. A nested `transactional()`
+  call joins the open transaction rather than issuing it again, and a failure
+  rolls the whole group back and substitutes nothing. `SqlConnection` still
+  declares no transaction method. Recorded as ADR-0006.
 - Every howdah table declares `ENGINE=InnoDB`. The emitter refuses anything
   else before the statement exists, and a test asserts the engine the server
   reports after the migration.
@@ -318,7 +321,13 @@ composer check       # all of the above
 | The engine check on the test connection before any transactional test runs |
 | The architecture rules firing on a violation fixture and not on a clean one |
 | No identifier token anywhere naming core's schema function |
-| No string literal anywhere being a transaction statement |
+| Every transaction statement in the source living in the gateway |
+| A transaction whose second statement fails leaving zero rows, a nested call joining, and a nested failure rolling back |
+| The gateway refusing a caller-supplied identifier string |
+| A query with neither a LIMIT nor a primary-key equality being refused |
+| The search index added by its migration, its exact column list, and its presence cached in a non-autoloaded option with no per-request schema query |
+| The sweep's constant statement count per chunk while its cursor strictly advances |
+| A tombstoned row surviving a sweep |
 
 No coverage target. Coverage rewards testing getters.
 
@@ -353,20 +362,28 @@ service locator reached for statically, no trait, no dynamic property, no
 `@phpstan-ignore`, no `$wpdb` outside `WpdbConnection`, and no transaction
 statement.
 
-### Deliberate scope boundary
+### The query half
 
-The search index over `wp_posts` is **declared** here — `IndexKind::FullText`
-exists so the clause is emitted rather than hand-built — but it is not created
-by this package. Creating it belongs to the slice that owns the tokeniser and
-the fallback, and this package adds no index to core's tables. A test asserts
-both halves of that: the declaration names exactly the `MATCH` columns, and core's
-post table carries no `howdah_search` index.
+The typed table gateway, the transaction boundary, the search index migration
+and orphan collection are this package's, per the Phase 4 deliverable. The
+theme and `iniznet/mahout-fields` consume them.
 
-### Notes for the next slice
-
-- The transaction boundary, the typed table gateway, the search index and the
-  orphan collection are `iniznet/mahout-fields` and the theme. `SqlConnection`
-  carries no transaction method on purpose.
+- `Row` and `GatewayQuery` carry column names only as declaration keys; every
+  quoted identifier comes from the declared `Table`. A `Table`-typed parameter
+  makes a raw table-name string a `TypeError`, and an undeclared column key is
+  an `UnknownColumn`.
+- `GatewayQuery` has no unbounded form: a key must cover a leading prefix of the
+  primary key, or the query must declare a `LIMIT`. This is STO-22's runtime
+  floor, covering the statements the compile-time rule cannot see.
+- `AddSearchIndex` adds and drops `FULLTEXT KEY howdah_search` on core's posts
+  table; `OptionSearchIndexPresence` caches the presence in one non-autoloaded
+  option, refreshed from `mahout/db/after_migrate`.
+- `OrphanCollector` is the keyed delete attached to `deleted_post`;
+  `OrphanSweep` is the chunked, resumable, runtime-capped sweep attached to
+  `mahout/db/gc`. Both emit `mahout/db/orphans_collected`. Sources are
+  registered through `mahout/db/orphan_sources`.
+- `SqlConnection` carries no transaction method on purpose: the boundary is the
+  gateway's, and the connection stays a statement boundary.
 - `CliExitCode` is the contract; the WP-CLI binding lives in the theme's CLI
   provider, because `WP_CLI` is not a WordPress symbol and the analyzer's stubs
   are generated from core alone.

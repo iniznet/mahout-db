@@ -75,6 +75,49 @@ final class Hooks
     public const string SCHEMA_VERSION = 'mahout/db/schema_version';
 
     /**
+     * Filters the orphan sources the collection paths operate on.
+     *
+     * @since 1.0
+     *
+     * @filter
+     *
+     * @param list<Contracts\OrphanSource> $sources the declared sources
+     */
+    public const string ORPHAN_SOURCES = 'mahout/db/orphan_sources';
+
+    /**
+     * Fires after a collection path removed orphan rows, with the count.
+     *
+     * @since 1.0
+     *
+     * @action
+     *
+     * @param int $rows the number of rows removed
+     */
+    public const string ORPHANS_COLLECTED = 'mahout/db/orphans_collected';
+
+    /**
+     * Core's post deletion action: the immediate, keyed orphan path.
+     *
+     * @since 1.0
+     *
+     * @action
+     *
+     * @param int $postId the deleted post's id
+     */
+    public const string DELETED_POST = 'deleted_post';
+
+    /**
+     * The orphan sweep's own action. The theme schedules it; this package only
+     * attaches the handler, and the handler never runs on a request path.
+     *
+     * @since 1.0
+     *
+     * @action
+     */
+    public const string GC = 'mahout/db/gc';
+
+    /**
      * Core's theme-switch action: the first-install run path.
      *
      * A theme has no activation hook -- register_activation_hook() is
