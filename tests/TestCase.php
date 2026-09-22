@@ -47,6 +47,28 @@ abstract class TestCase extends \WP_UnitTestCase
     /** @var list<string> */
     private array $createdTables = [];
 
+    /**
+     * Core's per-test query filter (start_transaction()) rewrites every DROP
+     * TABLE into DROP TEMPORARY TABLE, which silently no-ops against a real
+     * table. A schema leftover from a process outside this suite -- a CLI run,
+     * a crashed phpunit, another package's manual step against this shared
+     * test database -- therefore survives every per-test cleanup and makes the
+     * suite's absence assertions lie. setUp() and tearDown() run inside the
+     * filter's window; setUpBeforeClass() runs before it attaches, so the
+     * drops here are real. Once per class, outside the per-test transaction,
+     * which is where the database strategy places class-level schema work.
+     */
+    public static function setUpBeforeClass(): void
+    {
+        parent::setUpBeforeClass();
+
+        foreach (self::declaredTables() as $table) {
+            self::dropTable($table);
+        }
+
+        self::dropSearchIndex();
+    }
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -71,7 +93,7 @@ abstract class TestCase extends \WP_UnitTestCase
         \delete_option(self::LEDGER_OPTION);
         \delete_option(self::SEARCH_OPTION);
         \delete_option(self::SWEEP_OPTION);
-        $this->dropSearchIndex();
+        self::dropSearchIndex();
         $this->dropCreatedTables();
 
         parent::tearDown();
@@ -81,7 +103,7 @@ abstract class TestCase extends \WP_UnitTestCase
      * The migration test adds the search index to core's own posts table; DDL
      * implicitly commits, so the per-test transaction cannot undo it.
      */
-    protected function dropSearchIndex(): void
+    protected static function dropSearchIndex(): void
     {
         global $wpdb;
 
@@ -280,7 +302,7 @@ abstract class TestCase extends \WP_UnitTestCase
         }
     }
 
-    protected function dropTable(string $name): void
+    protected static function dropTable(string $name): void
     {
         global $wpdb;
 
@@ -356,20 +378,33 @@ abstract class TestCase extends \WP_UnitTestCase
      * this suite created. Every table a fixture can leave behind is dropped
      * here, deterministically, before the next test starts.
      */
+    /**
+     * The tables this suite can leave behind, by canonical name. One list,
+     * read by the per-test teardown and by the class-level drop of real
+     * leftovers.
+     *
+     * @return list<string>
+     */
+    private static function declaredTables(): array
+    {
+        global $wpdb;
+
+        $prefix = (string) $wpdb->prefix;
+
+        return [
+            MigrationLedgerSchema::table($prefix, (string) $wpdb->get_charset_collate())->name->value,
+            NotesTable::nameFor($prefix)->value,
+            Identifier::prefixed($prefix, 'fixture_meta')->value,
+            $prefix.'fixture_myisam',
+            $prefix.'fixture_orphans',
+            $prefix.'sql_connection_probe',
+        ];
+    }
+
     private function dropCreatedTables(): void
     {
-        $tables = [
-            $this->ledgerName(),
-            $this->valueTable(),
-            $this->metaTable(),
-            $this->prefix().'fixture_myisam',
-            $this->prefix().'fixture_orphans',
-            $this->prefix().'sql_connection_probe',
-            ...$this->createdTables,
-        ];
-
-        foreach ($tables as $table) {
-            $this->dropTable($table);
+        foreach ([...self::declaredTables(), ...$this->createdTables] as $table) {
+            self::dropTable($table);
         }
 
         $this->createdTables = [];
