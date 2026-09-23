@@ -16,8 +16,11 @@ WordPress publishes exactly one of them: `$wpdb`.
   package's composition-root named constructor. It resolves no collaborator: it reads the one global
   WordPress publishes and throws `ConnectionMissing` when it is absent.
 - `Internal\WpdbConnection` is the only class in the package that names `$wpdb`, and
-  `DbProvider` is the only class that names `WpdbConnection`. Both facts are greppable in one file
-  each.
+  `DbProvider` and `Search\MatchClause::fromWordPress()` are the only classes that name
+  `WpdbConnection`. Both facts are greppable in one file each. The second of the two was
+  added by ADR-0007, which moved the indexed search path into this package; the reason is
+  the same one recorded above — a composition root built by class name has to read the
+  connection from the process.
 - Every collaborator the provider declares is declared under the `Contracts` interface a consumer
   depends on — `SqlConnection`, `MigrationStore`, `SchemaVersionStore` — and every lookup resolves by
   that interface. Nothing outside the package names an `Internal` class to receive one, and the

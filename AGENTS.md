@@ -378,6 +378,14 @@ theme and `iniznet/mahout-fields` consume them.
 - `AddSearchIndex` adds and drops `FULLTEXT KEY howdah_search` on core's posts
   table; `OptionSearchIndexPresence` caches the presence in one non-autoloaded
   option, refreshed from `mahout/db/after_migrate`.
+- The indexed search path is here too (ADR-0007): `Search\SearchTerms`,
+  `Search\MatchClause`, `Search\IndexedSearchSwap`, `Search\SearchFallbackReport`
+  and `Search\SearchProvider`. The `MATCH` column list is read from `SearchIndex`,
+  never retyped, so error 1191 cannot arise, and a search whose index is absent
+  keeps running core's LIKE query with the absence reported once per request.
+- `Contracts\StatementPreparer` renders a statement without running it, for the
+  fragment another party interpolates. `WpdbConnection` implements both it and
+  `SqlConnection`, and remains the only class that names `$wpdb`.
 - `OrphanCollector` is the keyed delete attached to `deleted_post`;
   `OrphanSweep` is the chunked, resumable, runtime-capped sweep attached to
   `mahout/db/gc`. Both emit `mahout/db/orphans_collected`. Sources are

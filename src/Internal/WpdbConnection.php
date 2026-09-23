@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Iniznet\Mahout\Db\Internal;
 
 use Iniznet\Mahout\Db\Contracts\SqlConnection;
+use Iniznet\Mahout\Db\Contracts\StatementPreparer;
 use Iniznet\Mahout\Db\Exception\ConnectionMissing;
 use Iniznet\Mahout\Db\Exception\StatementFailed;
 
@@ -15,9 +16,15 @@ use Iniznet\Mahout\Db\Exception\StatementFailed;
  * wpdb::prepare() reports _doing_it_wrong() on a query with no placeholder -- so
  * DDL never goes near it. A statement that carries values is always prepared.
  *
+ * The class is also the package's only render-without-executing boundary, and
+ * it implements {@see StatementPreparer} for that: a search fragment belongs to
+ * another party's query, so it is prepared here and never run here. Both
+ * contracts are the same object because both are the same connection, and no
+ * other class in the package, or outside it, names \$wpdb.
+ *
  * @internal
  */
-final readonly class WpdbConnection implements SqlConnection
+final readonly class WpdbConnection implements SqlConnection, StatementPreparer
 {
     public function __construct(private \wpdb $wpdb)
     {
@@ -49,7 +56,7 @@ final readonly class WpdbConnection implements SqlConnection
 
     public function executePrepared(string $statement, string|int ...$values): void
     {
-        $this->execute($this->prepare($statement, $values));
+        $this->execute($this->bind($statement, $values));
     }
 
     public function rows(string $statement): array
@@ -59,7 +66,7 @@ final readonly class WpdbConnection implements SqlConnection
 
     public function rowsPrepared(string $statement, string|int ...$values): array
     {
-        return $this->collect($this->prepare($statement, $values));
+        return $this->collect($this->bind($statement, $values));
     }
 
     public function prefix(): string
@@ -72,10 +79,15 @@ final readonly class WpdbConnection implements SqlConnection
         return $this->wpdb->get_charset_collate();
     }
 
+    public function prepare(string $statement, string|int ...$values): string
+    {
+        return $this->bind($statement, $values);
+    }
+
     /**
      * @param array<int|string, string|int> $values
      */
-    private function prepare(string $statement, array $values): string
+    private function bind(string $statement, array $values): string
     {
         $prepared = $this->wpdb->prepare($statement, ...$values);
 

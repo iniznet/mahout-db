@@ -14,7 +14,7 @@ namespace Iniznet\Mahout\Db;
  */
 final readonly class SearchIndex
 {
-    private const string NAME = 'howdah_search';
+    public const string NAME = 'howdah_search';
 
     private function __construct(
         private Identifier $table,

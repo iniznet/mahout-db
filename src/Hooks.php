@@ -139,4 +139,35 @@ final class Hooks
      * @param string $hookSuffix the current admin page's hook suffix
      */
     public const string ADMIN_INIT = 'admin_init';
+
+    /**
+     * Core's search fragment, applied with the running query.
+     *
+     * `Search\IndexedSearchSwap` honours it: a query that declared the indexed
+     * path gets the FULLTEXT clause, every other query gets its argument back
+     * unchanged, and a site with no index keeps running core's LIKE query.
+     *
+     * @since 1.0
+     *
+     * @filter
+     *
+     * @param string    $search the search fragment core built
+     * @param \WP_Query $query  the running query
+     */
+    public const string POSTS_SEARCH = 'posts_search';
+
+    /**
+     * Core's search ordering, in the same query as POSTS_SEARCH.
+     *
+     * The index's own relevance score replaces core's title-match `CASE` for a
+     * declared search and for nothing else.
+     *
+     * @since 1.0
+     *
+     * @filter
+     *
+     * @param string    $orderby the ordering core built
+     * @param \WP_Query $query   the running query
+     */
+    public const string POSTS_SEARCH_ORDERBY = 'posts_search_orderby';
 }
