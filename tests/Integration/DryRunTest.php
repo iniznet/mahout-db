@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Iniznet\Mahout\Db\Tests\Integration;
 
+use Iniznet\Mahout\Db\Exception\InvalidSchemaVersion;
+use Iniznet\Mahout\Db\Internal\WordPressSchemaVersionStore;
 use Iniznet\Mahout\Db\Tests\Fixtures\FixtureSet;
 use Iniznet\Mahout\Db\Tests\TestCase;
 
@@ -106,5 +108,19 @@ final class DryRunTest extends TestCase
         self::assertSame(0, $version->stored);
         self::assertTrue($version->pending());
         self::assertSame([], $connection->reads(), 'the gate is an option read, not a ledger query');
+    }
+
+    public function testACorruptStoredVersionIsRefusedNeverReadAsZero(): void
+    {
+        \update_option('mahout_db_schema_version', 'corrupt');
+
+        try {
+            (new WordPressSchemaVersionStore())->stored();
+            self::fail('a corrupt schema version option is a broken invariant');
+        } catch (InvalidSchemaVersion $refusal) {
+            self::assertStringContainsString('corrupt value is refused', $refusal->getMessage());
+        } finally {
+            \delete_option('mahout_db_schema_version');
+        }
     }
 }

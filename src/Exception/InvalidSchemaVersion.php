@@ -20,4 +20,9 @@ final class InvalidSchemaVersion extends \UnexpectedValueException implements Ma
     {
         return new self(\sprintf('The %s filter must return an integer.', $hook));
     }
+
+    public static function corruptStoredOption(string $type): self
+    {
+        return new self(\sprintf('The stored schema version is a %s; the ledger gate needs an integer, and a corrupt value is refused, never read as zero.', $type));
+    }
 }

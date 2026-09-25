@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Iniznet\Mahout\Db\Internal;
 
 use Iniznet\Mahout\Db\Contracts\SchemaVersionStore;
+use Iniznet\Mahout\Db\Exception\InvalidSchemaVersion;
 
 /**
  * The schema version option, stored autoload='no'.
@@ -24,7 +25,13 @@ final readonly class WordPressSchemaVersionStore implements SchemaVersionStore
     {
         $stored = \get_option(self::OPTION, 0);
 
-        return \is_numeric($stored) ? (int) $stored : 0;
+        // A stored value that is not a number is a corrupt option: reading
+        // it as zero would silently re-enter the lazy migrate path.
+        if (!\is_numeric($stored)) {
+            throw InvalidSchemaVersion::corruptStoredOption(\get_debug_type($stored));
+        }
+
+        return (int) $stored;
     }
 
     public function record(int $version): void
