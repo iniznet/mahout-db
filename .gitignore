@@ -1,47 +1,20 @@
-# Build output
 /node_modules/
 /vendor/
 /dist/
 /build/
 /coverage/
-
-# Local development manifest — a per-developer view of the same dependency
-# graph. Never released, and a commit of it fails the gate (REP-11).
 composer.dev.json
 composer.dev.lock
-
-# The local test configuration points at a real database on this machine.
-# tests/wp-tests-config.php.dist is the committed template.
 tests/wp-tests-config.php
-
-# Tool and test caches
 .php-cs-fixer.cache
 .phpunit.result.cache
 .phpunit.cache
 /.phpstan.cache/
 /.phpstan-fixtures-cache/
-
-# Editors and operating systems
 .idea/
 .vscode/
 .DS_Store
 Thumbs.db
 desktop.ini
-
-# Agent session state
 .pi/
-
-# ---------------------------------------------------------------------------
-# The private planning corpus.
-#
-# docs/planning/ states the architecture, the refusals, the delivery roadmap
-# and the economics of this project. It is excluded from every public
-# repository so that a consumer of the code cannot read the reasoning,
-# the rejected alternatives or the business assumptions behind it.
-#
-# Consequence, and it is deliberate: nothing committed to this repository may
-# link into docs/planning/. AGENTS.md and every README are written to stand
-# alone for exactly this reason. A link into an excluded directory is a link
-# that 404s for every person who ever clones this repository.
-# ---------------------------------------------------------------------------
 /docs/planning/
