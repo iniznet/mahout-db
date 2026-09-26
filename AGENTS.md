@@ -377,8 +377,12 @@ theme and `iniznet/mahout-fields` consume them.
   makes a raw table-name string a `TypeError`, and an undeclared column key is
   an `UnknownColumn`.
 - `GatewayQuery` has no unbounded form: a key must cover a leading prefix of the
-  primary key, or the query must declare a `LIMIT`. This is STO-22's runtime
-  floor, covering the statements the compile-time rule cannot see.
+  primary key, or the query must declare a `LIMIT`, or the query declares a set
+  (`among()`) whose values are the caller's already-bounded list and whose `LIMIT`
+  caps the whole page rather than one row. This is STO-22's runtime floor, covering
+  the statements the compile-time rule cannot see. An empty set is refused rather
+  than read as "no predicate", because that reading turns the one statement shape
+  built for cache priming into a full scan.
 - `AddSearchIndex` adds and drops `FULLTEXT KEY howdah_search` on core's posts
   table; `OptionSearchIndexPresence` caches the presence in one non-autoloaded
   option, refreshed from `mahout/db/after_migrate`.

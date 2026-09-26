@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Iniznet\Mahout\Db\Tests\Unit;
 
+use Iniznet\Mahout\Db\Column;
+use Iniznet\Mahout\Db\Exception\InvalidRow;
 use Iniznet\Mahout\Db\Exception\UnboundedStatement;
 use Iniznet\Mahout\Db\GatewayQuery;
 use Iniznet\Mahout\Db\Row;
@@ -69,6 +71,55 @@ final class GatewayQueryTest extends TestCase
         self::fail('an unbounded key must be refused');
     }
 
+    public function testASetPredicateCarriesItsColumnItsValuesAndItsLimit(): void
+    {
+        $table = $this->notesTable()->declared();
+
+        $query = GatewayQuery::among(
+            Row::of($table, ['object_kind' => 1]),
+            $table->column('object_id'),
+            [7, 9, 11],
+            30,
+        );
+
+        self::assertSame([7, 9, 11], $query->setValues);
+        self::assertSame('object_id', $query->setColumn?->name->value);
+        self::assertSame(30, $query->limit);
+    }
+
+    public function testAnEmptySetIsRefusedRatherThanReadAsEveryRow(): void
+    {
+        $table = $this->notesTable()->declared();
+
+        try {
+            GatewayQuery::among(Row::of($table, ['object_kind' => 1]), $table->column('object_id'), [], 10);
+        } catch (InvalidRow $failure) {
+            self::assertStringContainsString('no values', $failure->getMessage());
+
+            return;
+        }
+
+        self::fail('an empty set must not become a scan dressed as a prime.');
+    }
+
+    public function testASetColumnTheConditionsTableDoesNotDeclareIsRefused(): void
+    {
+        $table = $this->notesTable()->declared();
+
+        $this->expectException(InvalidRow::class);
+
+        GatewayQuery::among(Row::of($table, ['object_kind' => 1]), Column::reference('value_missing'), [7], 10);
+    }
+
+    public function testASetCarryingAValueWithNoPlaceholderIsRefused(): void
+    {
+        $table = $this->notesTable()->declared();
+
+        $this->expectException(InvalidRow::class);
+
+        GatewayQuery::among(Row::of($table, ['object_kind' => 1]), $table->column('object_id'), [7, [9]], 10);
+    }
+
     public function testALimitOfOneOrMoreBoundsAnArbitraryPredicate(): void
     {
         $table = $this->notesTable()->declared();
@@ -83,5 +134,14 @@ final class GatewayQueryTest extends TestCase
         $this->expectException(UnboundedStatement::class);
 
         GatewayQuery::bounded(Row::of($this->notesTable()->declared(), []), 0);
+    }
+
+    public function testASetPredicateWithNoLimitIsRefused(): void
+    {
+        $table = $this->notesTable()->declared();
+
+        $this->expectException(UnboundedStatement::class);
+
+        GatewayQuery::among(Row::of($table, ['object_kind' => 1]), $table->column('object_id'), [7, 9], 0);
     }
 }

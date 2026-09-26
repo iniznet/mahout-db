@@ -61,7 +61,7 @@ final class WpdbTableGateway implements TableGateway
     public function select(GatewayQuery $query): array
     {
         $table = $query->conditions->table;
-        [$where, $values] = $this->predicate($query->conditions);
+        [$where, $values] = $this->predicateOf($query);
 
         $statement = 'SELECT '.$this->selectList($table)
             .' FROM '.$table->name->quoted()
@@ -94,7 +94,7 @@ final class WpdbTableGateway implements TableGateway
     {
         $this->assertTable($values, $query->conditions->table);
         [$assignments, $setValues] = $this->assignments($values);
-        [$where, $whereValues] = $this->predicate($query->conditions);
+        [$where, $whereValues] = $this->predicateOf($query);
 
         $this->write(
             'UPDATE '.$values->table->name->quoted().' SET '.$assignments
@@ -105,7 +105,7 @@ final class WpdbTableGateway implements TableGateway
 
     public function delete(GatewayQuery $query): void
     {
-        [$where, $values] = $this->predicate($query->conditions);
+        [$where, $values] = $this->predicateOf($query);
 
         $this->write(
             'DELETE FROM '.$query->conditions->table->name->quoted()
@@ -175,6 +175,38 @@ final class WpdbTableGateway implements TableGateway
 
     /**
      * @return array{string, list<string|int>}
+     */
+    /**
+     * The statement's WHERE clause: the declared equalities and, when the query
+     * carries one, the set predicate ANDed onto them.
+     *
+     * @return array{string, list<int|string>}
+     */
+    private function predicateOf(GatewayQuery $query): array
+    {
+        [$where, $values] = $this->predicate($query->conditions);
+
+        if (null === $query->setColumn) {
+            return [$where, $values];
+        }
+
+        $placeholders = [];
+
+        foreach ($query->setValues as $value) {
+            $placeholders[] = \is_int($value) ? '%d' : '%s';
+            $values[] = $value;
+        }
+
+        $set = $query->setColumn->name->quoted().' IN ('.\implode(', ', $placeholders).')';
+
+        return ['' === $where ? $set : $where.' AND '.$set, $values];
+    }
+
+    /**
+     * Row values are declared `string|int|null`, and a null is emitted as the SQL
+     * literal NULL rather than bound, so what leaves here is int|string.
+     *
+     * @return array{string, list<int|string>}
      */
     private function predicate(Row $conditions): array
     {

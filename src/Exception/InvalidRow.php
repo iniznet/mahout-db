@@ -42,6 +42,30 @@ final class InvalidRow extends \InvalidArgumentException implements MahoutExcept
         );
     }
 
+    public static function emptySet(string $table): self
+    {
+        return new self(
+            \sprintf('A set predicate against "%s" was given no values; an empty set is refused rather than read as every row.', $table),
+            $table,
+        );
+    }
+
+    public static function nonScalarSet(string $table): self
+    {
+        return new self(
+            \sprintf('A set predicate against "%s" carries a value that is neither an integer nor a string.', $table),
+            $table,
+        );
+    }
+
+    public static function foreignColumn(string $table, string $column): self
+    {
+        return new self(
+            \sprintf('The set column "%s" is not declared by "%s".', $column, $table),
+            $table,
+        );
+    }
+
     public static function nonPositiveLimit(int $limit): self
     {
         return new self(

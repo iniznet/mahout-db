@@ -151,4 +151,64 @@ final class TableGatewayTest extends TestCase
     {
         return new WpdbTableGateway($this->connection());
     }
+
+    public function testASetPredicateFilesEveryListedObjectInOneStatement(): void
+    {
+        $table = $this->notesTable()->declared();
+        $gateway = $this->gateway();
+
+        foreach ([7, 9, 11] as $id) {
+            $gateway->insert(Row::of($table, [
+                'object_kind' => 1,
+                'object_id' => $id,
+                'field_id' => 'isbn',
+                'value_text' => (string) $id,
+            ]));
+        }
+
+        $gateway->insert(Row::of($table, [
+            'object_kind' => 2,
+            'object_id' => 7,
+            'field_id' => 'isbn',
+            'value_text' => 'another kind',
+        ]));
+
+        $before = \count((array) ($GLOBALS['wpdb']->queries ?? []));
+
+        $rows = $gateway->select(GatewayQuery::among(
+            Row::of($table, ['object_kind' => 1]),
+            $table->column('object_id'),
+            [7, 9, 11, 13],
+            30,
+        ));
+
+        $issued = \count((array) ($GLOBALS['wpdb']->queries ?? [])) - $before;
+
+        self::assertSame(1, $issued, 'the whole page is one statement, which is the shape a cache prime needs.');
+        self::assertCount(3, $rows, 'the declared equality is ANDed onto the set, and a listed object with no row is simply absent.');
+    }
+
+    public function testTheSetPredicateLimitCapsTheResultRatherThanEachRow(): void
+    {
+        $table = $this->notesTable()->declared();
+        $gateway = $this->gateway();
+
+        foreach ([7, 9, 11] as $id) {
+            $gateway->insert(Row::of($table, [
+                'object_kind' => 1,
+                'object_id' => $id,
+                'field_id' => 'isbn',
+                'value_text' => (string) $id,
+            ]));
+        }
+
+        $rows = $gateway->select(GatewayQuery::among(
+            Row::of($table, ['object_kind' => 1]),
+            $table->column('object_id'),
+            [7, 9, 11],
+            2,
+        ));
+
+        self::assertCount(2, $rows, 'the LIMIT bounds the set read as a whole, so no caller can turn a prime into a scan.');
+    }
 }
