@@ -1,6 +1,12 @@
 # ADR-0005 — Shared analyzer config, the lockfile, and the translation scope
 
-Status: accepted
+Status: accepted, except the lockfile clause, which is superseded by `iniznet/mahout-devtools` ADR-0008
+
+The shared-configuration decision stands. The lockfile half does not: the
+family's repositories are published, each manifest declares its family
+requirements as committed VCS repositories, and each lock resolves over them, so
+a fresh clone installs. `PathRepositoryCheck` fails a lock that pins a `path`
+dist.
 
 ## Context
 
