@@ -28,7 +28,7 @@ final class OrphanSweepTest extends TestCase
     {
         $table = $this->orphanTable();
         $gateway = new WpdbTableGateway($this->connection());
-        $cursor = new OptionSweepCursor();
+        $cursor = new OptionSweepCursor(self::identity());
         $sweep = new OrphanSweep($gateway, $cursor, $this->diagnostics());
         $source = new FixtureOrphanSource($this->connection(), $table);
 
@@ -64,7 +64,7 @@ final class OrphanSweepTest extends TestCase
     {
         $table = $this->orphanTable();
         $gateway = new WpdbTableGateway($this->connection());
-        $sweep = new OrphanSweep($gateway, new OptionSweepCursor(), $this->diagnostics());
+        $sweep = new OrphanSweep($gateway, new OptionSweepCursor(self::identity()), $this->diagnostics());
         $source = new FixtureOrphanSource($this->connection(), $table);
 
         $gateway->insert(Row::of($table, ['post_id' => 999, 'seq' => 1, 'tombstoned' => 1]));
@@ -84,7 +84,7 @@ final class OrphanSweepTest extends TestCase
     {
         $table = $this->orphanTable();
         $gateway = new WpdbTableGateway($this->connection());
-        $sweep = new OrphanSweep($gateway, new OptionSweepCursor(), $this->diagnostics());
+        $sweep = new OrphanSweep($gateway, new OptionSweepCursor(self::identity()), $this->diagnostics());
         $source = new FixtureOrphanSource($this->connection(), $table);
         $gateway->insert(Row::of($table, ['post_id' => 999, 'seq' => 1, 'tombstoned' => 0]));
 
@@ -102,7 +102,7 @@ final class OrphanSweepTest extends TestCase
     {
         $table = $this->orphanTable();
         $gateway = new WpdbTableGateway($this->connection());
-        $sweep = new OrphanSweep($gateway, new OptionSweepCursor(), $this->diagnostics());
+        $sweep = new OrphanSweep($gateway, new OptionSweepCursor(self::identity()), $this->diagnostics());
         $source = new FixtureOrphanSource($this->connection(), $table);
 
         $postId = self::factory()->post->create();

@@ -61,7 +61,7 @@ final class EngineAssertionTest extends TestCase
         self::assertStringContainsString($this->ledgerName(), $connection->writes()[0]);
 
         self::assertSame([], $this->ledgerStore($connection)->applied());
-        self::assertSame(0, (int) \get_option(self::LEDGER_OPTION, 0));
+        self::assertSame(0, (int) \get_option(self::ledgerOption(), 0));
         self::assertFalse($this->tableExists($this->prefix().'fixture_myisam'));
     }
 

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Iniznet\Mahout\Db\Internal;
 
 use Iniznet\Mahout\Db\Contracts\SweepCursor;
+use Iniznet\Mahout\Kernel\RuntimeIdentity;
 
 /**
  * The sweep's cursor, persisted in one non-autoloaded option as a table-keyed
@@ -16,9 +17,20 @@ use Iniznet\Mahout\Db\Contracts\SweepCursor;
  *
  * @internal
  */
-final class OptionSweepCursor implements SweepCursor
+final readonly class OptionSweepCursor implements SweepCursor
 {
-    private const string OPTION = 'mahout_db_sweep_cursors';
+    private const string OPTION_SUFFIX = 'db_sweep_cursors';
+
+    private string $option;
+
+    /**
+     * The option is named for the host that owns it: two mahout systems on one
+     * site sweep different tables and must not read each other's cursors.
+     */
+    public function __construct(RuntimeIdentity $identity)
+    {
+        $this->option = $identity->namespacedName(self::OPTION_SUFFIX);
+    }
 
     public function load(string $table): ?array
     {
@@ -44,7 +56,7 @@ final class OptionSweepCursor implements SweepCursor
      */
     private function read(): array
     {
-        $raw = \get_option(self::OPTION, []);
+        $raw = \get_option($this->option, []);
         if (!\is_array($raw)) {
             return [];
         }
@@ -75,6 +87,6 @@ final class OptionSweepCursor implements SweepCursor
      */
     private function write(array $all): void
     {
-        \update_option(self::OPTION, $all, false);
+        \update_option($this->option, $all, false);
     }
 }

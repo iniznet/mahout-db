@@ -15,6 +15,7 @@ use Iniznet\Mahout\Db\Contracts\TableGateway;
 use Iniznet\Mahout\Db\Exception\InvalidMigrationList;
 use Iniznet\Mahout\Db\Exception\InvalidOrphanSourceList;
 use Iniznet\Mahout\Db\Exception\InvalidSchemaVersion;
+use Iniznet\Mahout\Db\Internal\LegacyNameAdoption;
 use Iniznet\Mahout\Db\Internal\OptionSearchIndexPresence;
 use Iniznet\Mahout\Db\Internal\OptionSweepCursor;
 use Iniznet\Mahout\Db\Internal\SearchIndexFinder;
@@ -25,6 +26,8 @@ use Iniznet\Mahout\Db\Internal\WpdbTableGateway;
 use Iniznet\Mahout\Kernel\Container;
 use Iniznet\Mahout\Kernel\Contracts\ServiceProvider;
 use Iniznet\Mahout\Kernel\Diagnostics;
+use Iniznet\Mahout\Kernel\Exception\RuntimeIdentityNotDeclared;
+use Iniznet\Mahout\Kernel\RuntimeIdentity;
 
 /**
  * The composition-root entry point for mahout-db.
@@ -58,9 +61,26 @@ final class DbProvider implements ServiceProvider
 
     public function register(Container $container): void
     {
+        // First, before anything reads the database: the names this package
+        // writes into a site carry the host that owns them, and there is no
+        // default identity to fall back to. Refusing here is what makes the
+        // requirement a boot failure with a remedy rather than a shared ledger
+        // discovered a release later.
+        if (!$container->has(RuntimeIdentity::class)) {
+            throw RuntimeIdentityNotDeclared::forPackage(self::class);
+        }
+
+        $identity = $container->get(RuntimeIdentity::class);
         $connection = WpdbConnection::inWordPress();
+
+        // The prefix is a database fact and the identity is a host fact; they
+        // meet here, in the package that composes the names, and MySQL's
+        // identifier limit is asserted against the widest one before any of them
+        // is built.
+        $identity->assertFits($connection->prefix());
+
         $emitter = new DdlEmitter();
-        $ledger = MigrationLedgerSchema::table($connection->prefix(), $connection->charsetCollate());
+        $ledger = MigrationLedgerSchema::table($connection->prefix(), $identity, $connection->charsetCollate());
         $index = SearchIndex::onPosts($connection->prefix());
         $finder = new SearchIndexFinder($connection, $index);
 
@@ -68,10 +88,11 @@ final class DbProvider implements ServiceProvider
         // constructor names, not the implementation class it may not depend on.
         $container->set(service: $connection, id: SqlConnection::class);
         $container->set(service: new WpdbMigrationStore($connection, $emitter, $ledger), id: MigrationStore::class);
-        $container->set(service: new WordPressSchemaVersionStore(), id: SchemaVersionStore::class);
+        $container->set(service: new WordPressSchemaVersionStore($identity), id: SchemaVersionStore::class);
         $container->set(service: new WpdbTableGateway($connection), id: TableGateway::class);
-        $container->set(service: new OptionSearchIndexPresence($finder), id: SearchIndexPresence::class);
-        $container->set(service: new OptionSweepCursor(), id: SweepCursor::class);
+        $container->set(service: new OptionSearchIndexPresence($finder, $identity), id: SearchIndexPresence::class);
+        $container->set(service: new OptionSweepCursor($identity), id: SweepCursor::class);
+        $container->set(service: new LegacyNameAdoption($connection, $emitter, $identity), id: LegacyNameAdoption::class);
         $container->set($emitter);
     }
 
@@ -83,6 +104,7 @@ final class DbProvider implements ServiceProvider
         $runner = new MigrationRunner(
             ledger: $container->get(MigrationStore::class),
             versions: $container->get(SchemaVersionStore::class),
+            legacyNames: $container->get(LegacyNameAdoption::class),
             migrations: $migrations,
             codeVersion: $this->codeVersion(),
             diagnostics: $container->get(Diagnostics::class),

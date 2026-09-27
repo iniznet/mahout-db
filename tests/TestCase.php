@@ -7,6 +7,7 @@ namespace Iniznet\Mahout\Db\Tests;
 use Iniznet\Mahout\Db\Contracts\SqlConnection;
 use Iniznet\Mahout\Db\DdlEmitter;
 use Iniznet\Mahout\Db\Identifier;
+use Iniznet\Mahout\Db\Internal\LegacyNameAdoption;
 use Iniznet\Mahout\Db\Internal\WordPressSchemaVersionStore;
 use Iniznet\Mahout\Db\Internal\WpdbConnection;
 use Iniznet\Mahout\Db\Internal\WpdbMigrationStore;
@@ -17,9 +18,11 @@ use Iniznet\Mahout\Db\Table;
 use Iniznet\Mahout\Db\Tests\Fixtures\FixtureSet;
 use Iniznet\Mahout\Db\Tests\Fixtures\NotesTable;
 use Iniznet\Mahout\Db\Tests\Fixtures\RecordingConnection;
+use Iniznet\Mahout\Kernel\Container;
 use Iniznet\Mahout\Kernel\Contracts\QuerySource;
 use Iniznet\Mahout\Kernel\Diagnostics;
 use Iniznet\Mahout\Kernel\Environment;
+use Iniznet\Mahout\Kernel\RuntimeIdentity;
 
 /**
  * The base test case for this package.
@@ -34,11 +37,50 @@ use Iniznet\Mahout\Kernel\Environment;
  */
 abstract class TestCase extends \WP_UnitTestCase
 {
-    public const string LEDGER_OPTION = 'mahout_db_schema_version';
+    /**
+     * The option names this package wrote before a host declared an identity.
+     *
+     * They are history, not a namespace to avoid: LegacyNameAdoptionTest moves an
+     * installed site off them, and the suite deletes them so an adoption test that
+     * seeds one cannot poison whichever test runs next.
+     *
+     * @var list<string>
+     */
+    public const array LEGACY_OPTIONS = [
+        'mahout_db_schema_version',
+        'mahout_db_search_index',
+        'mahout_db_sweep_cursors',
+    ];
 
-    public const string SEARCH_OPTION = 'mahout_db_search_index';
+    public static function ledgerOption(): string
+    {
+        return self::identity()->namespacedName('db_schema_version');
+    }
 
-    public const string SWEEP_OPTION = 'mahout_db_sweep_cursors';
+    public static function searchOption(): string
+    {
+        return self::identity()->namespacedName('db_search_index');
+    }
+
+    public static function sweepOption(): string
+    {
+        return self::identity()->namespacedName('db_sweep_cursors');
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function everyOptionName(): array
+    {
+        return [...self::LEGACY_OPTIONS, self::ledgerOption(), self::searchOption(), self::sweepOption()];
+    }
+
+    protected static function clearOptions(): void
+    {
+        foreach (self::everyOptionName() as $option) {
+            \delete_option($option);
+        }
+    }
 
     public const int CODE_VERSION = 1;
 
@@ -78,9 +120,7 @@ abstract class TestCase extends \WP_UnitTestCase
         // The gate option is cleared before the test body as well as after it:
         // DDL implicitly commits, so core's per-test transaction cannot be
         // relied on to undo an option the previous test's migrations wrote.
-        \delete_option(self::LEDGER_OPTION);
-        \delete_option(self::SEARCH_OPTION);
-        \delete_option(self::SWEEP_OPTION);
+        self::clearOptions();
         $this->dropTable($this->ledgerName());
     }
 
@@ -90,9 +130,7 @@ abstract class TestCase extends \WP_UnitTestCase
         // commits: a delete issued after the drop would happen inside the fresh
         // transaction that core's tearDown() then rolls back, leaving the value
         // this test wrote behind for the next one.
-        \delete_option(self::LEDGER_OPTION);
-        \delete_option(self::SEARCH_OPTION);
-        \delete_option(self::SWEEP_OPTION);
+        self::clearOptions();
         self::dropSearchIndex();
         $this->dropCreatedTables();
 
@@ -158,9 +196,27 @@ abstract class TestCase extends \WP_UnitTestCase
         return (string) $wpdb->get_charset_collate();
     }
 
+    /**
+     * Declares the identity a host would declare in its composition root. DbProvider
+     * refuses to register without it, so any test that boots the provider calls
+     * this first -- the same line a consumer's Bootstrap.php carries.
+     */
+    protected function declareIdentity(Container $container): Container
+    {
+        $container->set(self::identity(), RuntimeIdentity::class);
+
+        return $container;
+    }
+
+    /** The identity the suite declares, standing in for a host's own. */
+    protected static function identity(): RuntimeIdentity
+    {
+        return RuntimeIdentity::fromSlug('suite');
+    }
+
     protected function ledger(): Table
     {
-        return MigrationLedgerSchema::table($this->prefix(), $this->charsetCollate());
+        return MigrationLedgerSchema::table($this->prefix(), self::identity(), $this->charsetCollate());
     }
 
     protected function ledgerName(): string
@@ -229,7 +285,8 @@ abstract class TestCase extends \WP_UnitTestCase
     {
         return new MigrationRunner(
             ledger: $this->ledgerStore($connection),
-            versions: new WordPressSchemaVersionStore(),
+            versions: new WordPressSchemaVersionStore(self::identity()),
+            legacyNames: new LegacyNameAdoption($connection, new DdlEmitter(), self::identity()),
             migrations: MigrationList::fromHookPayload($migrations),
             codeVersion: self::CODE_VERSION,
             diagnostics: $diagnostics ?? $this->diagnostics(),
@@ -401,7 +458,7 @@ abstract class TestCase extends \WP_UnitTestCase
         $prefix = (string) $wpdb->prefix;
 
         return [
-            MigrationLedgerSchema::table($prefix, (string) $wpdb->get_charset_collate())->name->value,
+            MigrationLedgerSchema::table($prefix, self::identity(), (string) $wpdb->get_charset_collate())->name->value,
             NotesTable::nameFor($prefix)->value,
             Identifier::prefixed($prefix, 'fixture_meta')->value,
             $prefix.'fixture_myisam',

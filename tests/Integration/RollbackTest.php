@@ -193,9 +193,9 @@ final class RollbackTest extends TestCase
         $runner = $this->runner($migrations, $connection);
         $runner->migrate();
 
-        \delete_option(self::LEDGER_OPTION);
+        \delete_option(self::ledgerOption());
         $runner->rollback(1);
 
-        self::assertSame(self::CODE_VERSION, (int) \get_option(self::LEDGER_OPTION, 0));
+        self::assertSame(self::CODE_VERSION, (int) \get_option(self::ledgerOption(), 0));
     }
 }

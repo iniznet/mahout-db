@@ -184,7 +184,7 @@ final class IndexedSearchTest extends TestCase
             return $this->container;
         }
 
-        $container = new Container();
+        $container = $this->declareIdentity(new Container());
         $container->set($this->diagnostics());
 
         $db = new DbProvider();

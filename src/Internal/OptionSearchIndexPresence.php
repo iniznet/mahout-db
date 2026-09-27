@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Iniznet\Mahout\Db\Internal;
 
 use Iniznet\Mahout\Db\Contracts\SearchIndexPresence;
+use Iniznet\Mahout\Kernel\RuntimeIdentity;
 
 /**
  * The search index's presence, cached in one non-autoloaded option.
@@ -15,28 +16,35 @@ use Iniznet\Mahout\Db\Contracts\SearchIndexPresence;
  *
  * Presence is a covering index over the declared column list, which is what makes
  * error 1191 impossible rather than unlikely: the option answers the question
- * MATCH() actually asks, and does not care what the index is called.
+ * MATCH() actually asks, and does not care what the index is called. The index
+ * itself is one site resource shared by every host, so the option is the only
+ * per-host fact about it — each host reads the same schema and records its own
+ * answer.
  *
  * @internal
  */
 final readonly class OptionSearchIndexPresence implements SearchIndexPresence
 {
-    private const string OPTION = 'mahout_db_search_index';
+    private const string OPTION_SUFFIX = 'db_search_index';
+
+    private string $option;
 
     public function __construct(
         private SearchIndexFinder $finder,
+        RuntimeIdentity $identity,
     ) {
+        $this->option = $identity->namespacedName(self::OPTION_SUFFIX);
     }
 
     public function present(): bool
     {
-        return (bool) \get_option(self::OPTION, false);
+        return (bool) \get_option($this->option, false);
     }
 
     public function refresh(): bool
     {
         $present = $this->finder->covers();
-        \update_option(self::OPTION, $present ? '1' : '0', false);
+        \update_option($this->option, $present ? '1' : '0', false);
 
         return $present;
     }

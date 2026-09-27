@@ -84,11 +84,11 @@ final class MigrationRunTest extends TestCase
     {
         $connection = $this->recording();
 
-        self::assertSame(0, (int) \get_option(self::LEDGER_OPTION, 0));
+        self::assertSame(0, (int) \get_option(self::ledgerOption(), 0));
 
         $this->runner($this->fixtures([FixtureSet::VALUE, FixtureSet::META], $connection), $connection)->migrate();
 
-        self::assertSame(self::CODE_VERSION, (int) \get_option(self::LEDGER_OPTION, 0));
+        self::assertSame(self::CODE_VERSION, (int) \get_option(self::ledgerOption(), 0));
     }
 
     public function testTheSchemaVersionOptionIsNotAutoloaded(): void
@@ -100,7 +100,7 @@ final class MigrationRunTest extends TestCase
 
         $autoload = $wpdb->get_var($wpdb->prepare(
             'SELECT autoload FROM '.$wpdb->options.' WHERE option_name = %s LIMIT 1',
-            self::LEDGER_OPTION,
+            self::ledgerOption(),
         ));
 
         // WordPress 6.6 renamed the stored spelling: 'no' became 'off'. Either
@@ -200,7 +200,7 @@ final class MigrationRunTest extends TestCase
         }
 
         self::assertSame(['fixture/0001_create_value_table'], $this->ledgerStore($connection)->applied());
-        self::assertSame(0, (int) \get_option(self::LEDGER_OPTION, 0));
+        self::assertSame(0, (int) \get_option(self::ledgerOption(), 0));
     }
 
     public function testTheMigrationFailedHookFiresWithTheNameAndTheCause(): void

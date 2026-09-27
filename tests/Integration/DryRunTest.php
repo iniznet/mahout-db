@@ -28,7 +28,7 @@ final class DryRunTest extends TestCase
         self::assertSame([], $connection->writes());
         self::assertNotSame([], $connection->reads(), 'a plan still has to read to be a plan');
         self::assertFalse($this->tableExists($this->ledgerName()), 'a dry run must not create the ledger');
-        self::assertSame(0, (int) \get_option(self::LEDGER_OPTION, 0));
+        self::assertSame(0, (int) \get_option(self::ledgerOption(), 0));
     }
 
     public function testAPlanAfterARunListsOnlyWhatIsStillPending(): void
@@ -112,15 +112,15 @@ final class DryRunTest extends TestCase
 
     public function testACorruptStoredVersionIsRefusedNeverReadAsZero(): void
     {
-        \update_option('mahout_db_schema_version', 'corrupt');
+        \update_option(self::ledgerOption(), 'corrupt');
 
         try {
-            (new WordPressSchemaVersionStore())->stored();
+            (new WordPressSchemaVersionStore(self::identity()))->stored();
             self::fail('a corrupt schema version option is a broken invariant');
         } catch (InvalidSchemaVersion $refusal) {
             self::assertStringContainsString('corrupt value is refused', $refusal->getMessage());
         } finally {
-            \delete_option('mahout_db_schema_version');
+            \delete_option(self::ledgerOption());
         }
     }
 }

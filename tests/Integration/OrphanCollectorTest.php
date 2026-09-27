@@ -66,7 +66,7 @@ final class OrphanCollectorTest extends TestCase
         $table = $this->orphanTable();
         $source = new FixtureOrphanSource($this->connection(), $table);
 
-        $container = new Container();
+        $container = $this->declareIdentity(new Container());
         $container->set($this->diagnostics());
         $provider = new DbProvider();
         $provider->register($container);

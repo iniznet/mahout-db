@@ -278,9 +278,9 @@ final class SchemaTest extends TestCase
 
     public function testTheLedgerSchemaDeclaresInnoDBAndAUniqueMigrationName(): void
     {
-        $ledger = MigrationLedgerSchema::table('wptests_', $this->charsetCollate());
+        $ledger = MigrationLedgerSchema::table('wptests_', self::identity(), $this->charsetCollate());
 
-        self::assertSame('wptests_mahout_migrations', $ledger->name->value);
+        self::assertSame('wptests_mahout_suite_migrations', $ledger->name->value);
         self::assertSame(Engine::InnoDB, $ledger->engine);
         self::assertSame(['id', 'migration', 'batch', 'ran_at'], \array_map(
             static fn (Column $column): string => $column->name->value,

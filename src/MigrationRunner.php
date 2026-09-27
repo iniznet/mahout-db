@@ -10,6 +10,7 @@ use Iniznet\Mahout\Db\Contracts\SchemaVersionStore;
 use Iniznet\Mahout\Db\Exception\MigrationFailed;
 use Iniznet\Mahout\Db\Exception\MigrationMissing;
 use Iniznet\Mahout\Db\Exception\MigrationRollbackRefused;
+use Iniznet\Mahout\Db\Internal\LegacyNameAdoption;
 use Iniznet\Mahout\Kernel\Diagnostics;
 use Iniznet\Mahout\Kernel\Level;
 
@@ -34,6 +35,7 @@ final readonly class MigrationRunner
     public function __construct(
         private MigrationStore $ledger,
         private SchemaVersionStore $versions,
+        private LegacyNameAdoption $legacyNames,
         private MigrationList $migrations,
         private int $codeVersion,
         private Diagnostics $diagnostics,
@@ -73,6 +75,13 @@ final readonly class MigrationRunner
 
     public function migrate(): MigrationRun
     {
+        // First, and before the ledger is read: an installed site's unsuffixed
+        // ledger and options move under this host's identity. A plan or status
+        // read does not write, so on the release that introduces the identity a
+        // --status read taken before any migrate reports the whole set as pending
+        // -- the ledger has not moved yet. See LegacyNameAdoption.
+        $this->legacyNames->adopt();
+
         $this->ledger->install();
 
         $pending = $this->pending($this->applied());

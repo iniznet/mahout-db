@@ -75,7 +75,7 @@ final class RunPathTest extends TestCase
         );
         self::assertTrue($this->tableExists($this->valueTable()));
         self::assertTrue($this->tableExists($this->metaTable()));
-        self::assertSame(self::CODE_VERSION, (int) \get_option(self::LEDGER_OPTION, 0));
+        self::assertSame(self::CODE_VERSION, (int) \get_option(self::ledgerOption(), 0));
     }
 
     public function testTheThemeSwitchPathIsIdempotent(): void
@@ -215,7 +215,7 @@ final class RunPathTest extends TestCase
             );
         }
 
-        $container = new Container();
+        $container = $this->declareIdentity(new Container());
         $container->set($this->diagnostics());
 
         $provider = new DbProvider();

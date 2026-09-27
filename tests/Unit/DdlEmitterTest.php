@@ -28,7 +28,7 @@ final class DdlEmitterTest extends TestCase
     public function testTheLedgerIsEmittedAsAnExplicitInnoDBStatement(): void
     {
         self::assertSame(
-            'CREATE TABLE `'.MigrationLedgerSchema::table($this->prefix(), $this->charsetCollate())->name->value.'` ('."\n"
+            'CREATE TABLE `'.MigrationLedgerSchema::table($this->prefix(), self::identity(), $this->charsetCollate())->name->value.'` ('."\n"
             ."  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,\n"
             ."  `migration` varchar(191) NOT NULL,\n"
             ."  `batch` int(10) unsigned NOT NULL,\n"
@@ -36,14 +36,14 @@ final class DdlEmitterTest extends TestCase
             .'  PRIMARY KEY (`id`),'."\n"
             .'  UNIQUE KEY `migration` (`migration`)'."\n"
             .') ENGINE=InnoDB '.$this->charsetCollate().';',
-            (new DdlEmitter())->create(MigrationLedgerSchema::table($this->prefix(), $this->charsetCollate())),
+            (new DdlEmitter())->create(MigrationLedgerSchema::table($this->prefix(), self::identity(), $this->charsetCollate())),
         );
     }
 
     public function testTheLedgerBootstrapUsesCreateTableIfNotExists(): void
     {
         $emitter = new DdlEmitter();
-        $table = MigrationLedgerSchema::table($this->prefix(), $this->charsetCollate());
+        $table = MigrationLedgerSchema::table($this->prefix(), self::identity(), $this->charsetCollate());
 
         self::assertStringStartsWith('CREATE TABLE IF NOT EXISTS ', $emitter->createIfNotExists($table));
         self::assertStringStartsWith('CREATE TABLE ', $emitter->create($table));
@@ -151,7 +151,7 @@ final class DdlEmitterTest extends TestCase
     private function declarations(): array
     {
         return [
-            'ledger' => MigrationLedgerSchema::table($this->prefix(), $this->charsetCollate()),
+            'ledger' => MigrationLedgerSchema::table($this->prefix(), self::identity(), $this->charsetCollate()),
             'fixture' => $this->table(),
         ];
     }

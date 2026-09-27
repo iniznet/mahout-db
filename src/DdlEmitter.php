@@ -53,6 +53,17 @@ final class DdlEmitter
     }
 
     /**
+     * A table rename, which is metadata: MySQL copies no rows, so a site adopts a
+     * different name without rebuilding anything. It is the only way an installed
+     * ledger can move under its host's identity without losing its history, and
+     * the history is the reason the move is not a copy.
+     */
+    public function renameTable(Identifier $from, Identifier $to): string
+    {
+        return 'RENAME TABLE '.$from->quoted().' TO '.$to->quoted().';';
+    }
+
+    /**
      * A rename, not a rebuild. Measured on the server this package supports
      * (MariaDB 11.7): RENAME INDEX on a FULLTEXT key returns immediately and the
      * index keeps its exact column list, which is what lets an installed site

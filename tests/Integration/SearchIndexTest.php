@@ -112,7 +112,7 @@ final class SearchIndexTest extends TestCase
         global $wpdb;
         $autoload = $wpdb->get_var($wpdb->prepare(
             'SELECT autoload FROM '.$wpdb->options.' WHERE option_name = %s LIMIT 1',
-            self::SEARCH_OPTION,
+            self::searchOption(),
         ));
         self::assertContains($autoload, ['off', 'no']);
     }
@@ -268,7 +268,7 @@ final class SearchIndexTest extends TestCase
             accepted_args: 1,
         );
 
-        $container = new Container();
+        $container = $this->declareIdentity(new Container());
         $container->set($this->diagnostics());
 
         $provider = new DbProvider();
@@ -293,7 +293,7 @@ final class SearchIndexTest extends TestCase
 
     private function presence(SearchIndex $index): OptionSearchIndexPresence
     {
-        return new OptionSearchIndexPresence($this->finder($index));
+        return new OptionSearchIndexPresence($this->finder($index), self::identity());
     }
 
     private function addMigration(SearchIndex $index): AddSearchIndex
