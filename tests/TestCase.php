@@ -459,6 +459,11 @@ abstract class TestCase extends \WP_UnitTestCase
 
         return [
             MigrationLedgerSchema::table($prefix, self::identity(), (string) $wpdb->get_charset_collate())->name->value,
+            // The unsuffixed ledger too. LegacyNameAdoption moves it onto the identity's
+            // name at the start of any migration run, so a suite that leaves one behind
+            // hands its history to whichever suite runs next and answers "already
+            // applied" for tables that suite has to create.
+            Identifier::prefixed($prefix, 'mahout_migrations')->value,
             NotesTable::nameFor($prefix)->value,
             Identifier::prefixed($prefix, 'fixture_meta')->value,
             $prefix.'fixture_myisam',
