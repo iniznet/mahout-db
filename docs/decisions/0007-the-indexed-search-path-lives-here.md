@@ -1,6 +1,8 @@
 # ADR-0007 — The indexed search path lives in `mahout-db`
 
-Status: accepted.
+Status: accepted, except that the index name it deferred renaming has since been
+renamed, and the presence check no longer asks by name; see the Consequences
+section and `ADR-0009`.
 
 ## Context
 
@@ -68,3 +70,13 @@ after itself.
   WordPress publishes. `ADR-0004` is corrected to say so.
 - The index name is still `howdah_search`. Renaming it is a schema change, and a
   schema change is a migration; nothing in this move requires one.
+
+  **Reversed by ADR-0009.** Nothing in *this* move required the rename, which was
+  true and not a reason to keep the name: a library had minted a site artefact's
+  name from one starter's identity, so every other consumer of this package that
+  ran the migration got a `Duplicate key name` fatal it could not avoid from its
+  own configuration. The index is now `mahout_posts_search`, adopted on an
+  installed site by `mahout/rename_search_index`. Presence stopped being answered
+  by name in the same change, because `MATCH()` selects an index by its column
+  list and never by its name — asking by name was reporting a working index as
+  absent.

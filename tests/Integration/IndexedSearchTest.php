@@ -9,6 +9,7 @@ use Iniznet\Mahout\Db\Contracts\SearchIndexPresence;
 use Iniznet\Mahout\Db\DbProvider;
 use Iniznet\Mahout\Db\DdlEmitter;
 use Iniznet\Mahout\Db\Hooks;
+use Iniznet\Mahout\Db\Internal\SearchIndexFinder;
 use Iniznet\Mahout\Db\Search\IndexedSearchSwap;
 use Iniznet\Mahout\Db\Search\SearchProvider;
 use Iniznet\Mahout\Db\Search\SearchTerms;
@@ -202,7 +203,10 @@ final class IndexedSearchTest extends TestCase
             return;
         }
 
-        (new AddSearchIndex($this->connection(), new DdlEmitter(), SearchIndex::onPosts($this->prefix())))->up();
+        $index = SearchIndex::onPosts($this->prefix());
+        $finder = new SearchIndexFinder($this->connection(), $index);
+
+        (new AddSearchIndex($this->connection(), new DdlEmitter(), $index, $finder))->up();
 
         $this->indexAdded = true;
     }

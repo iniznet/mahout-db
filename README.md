@@ -264,11 +264,20 @@ substitutes nothing and retries nothing.
 
 ## The search index, the indexed query and orphan collection
 
-`AddSearchIndex` adds `FULLTEXT KEY howdah_search (post_title, post_excerpt,
-post_content)` to the site's posts table and `down()` drops it. Presence is
-never queried on a request path: `OptionSearchIndexPresence::refresh()` makes
-the one `information_schema.STATISTICS` read and writes a non-autoloaded option,
-and `present()` is an option read. The provider refreshes it on
+`AddSearchIndex` adds `FULLTEXT KEY mahout_posts_search (post_title, post_excerpt,
+post_content)` to the site's posts table and `down()` drops it; the package
+contributes both it and `RenameSearchIndex` without being asked, because a host
+has no reason to request an index it was never told about. `RenameSearchIndex`
+adopts the name this package used to give the index, `howdah_search`, taken from
+one starter's identity; it renames a covering index that carries one of this
+package's own earlier names and leaves any other name exactly as its owner named
+it.
+
+Presence is never queried on a request path, and it is answered by the column
+list rather than the name, because that is what `MATCH()` selects by:
+`Internal\SearchIndexFinder` asks the one `information_schema.STATISTICS` read,
+`OptionSearchIndexPresence::refresh()` writes a non-autoloaded option, and
+`present()` is an option read. The provider refreshes it on
 `mahout/db/after_migrate`.
 
 ### The indexed search path
@@ -347,8 +356,9 @@ Every documented public class is part of the stable surface within a major.
 | `MigrationList` | the registered migrations, in order, with unique names |
 | `MigrationPlan`, `RollbackPlan`, `MigrationRun`, `MigrationStatus` | what a command reports |
 | `Row`, `GatewayQuery` | a typed row and a bounded predicate for the table gateway |
-| `SearchIndex` | the `howdah_search` index declaration and its `ADD`/`DROP` statements, and the name the clause and the presence check both read |
-| `AddSearchIndex` | the migration that adds and drops the search index |
+| `SearchIndex` | the `mahout_posts_search` index declaration, its `ADD`/`DROP`/`RENAME` statements, and the column list the clause and the presence check both read |
+| `AddSearchIndex` | the migration that adds and drops the search index, and creates no second index over columns an existing one already covers |
+| `RenameSearchIndex` | the migration that adopts the name this package used to give the index; it reverses by refusal, because the name it replaced is not recorded |
 | `Search\SearchTerms` | the tokeniser: the word runs, the caps, and the empty state a term with no token produces |
 | `Search\MatchClause` | the `MATCH` expression, its `posts_search` fragment and its relevance ordering, built from the index declaration |
 | `Search\IndexedSearchSwap` | the query args a search carries and the two core filters that honour the declaration |

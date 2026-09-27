@@ -100,16 +100,25 @@ abstract class TestCase extends \WP_UnitTestCase
     }
 
     /**
-     * The migration test adds the search index to core's own posts table; DDL
-     * implicitly commits, so the per-test transaction cannot undo it.
+     * The search index tests add FULLTEXT keys to core's own posts table; DDL
+     * implicitly commits, so the per-test transaction cannot undo them.
+     *
+     * Every FULLTEXT key goes, whichever name it carries. Dropping one known
+     * name is what let a test that created an index under a different name poison
+     * whichever test ran next: the rename tests deliberately hold a legacy name
+     * and a neighbour's name, and no suite may depend on the order it runs in.
      */
     protected static function dropSearchIndex(): void
     {
         global $wpdb;
 
-        $rows = $wpdb->get_results('SHOW INDEX FROM '.$wpdb->posts.' WHERE Key_name = '."'howdah_search'", ARRAY_A);
-        if ([] !== (array) $rows) {
-            $wpdb->query('ALTER TABLE '.$wpdb->posts.' DROP INDEX howdah_search');
+        $rows = (array) $wpdb->get_results(
+            'SHOW INDEX FROM '.$wpdb->posts." WHERE Index_type = 'FULLTEXT'",
+            ARRAY_A,
+        );
+
+        foreach (array_unique(array_column($rows, 'Key_name')) as $name) {
+            $wpdb->query('ALTER TABLE '.$wpdb->posts.' DROP INDEX `'.$name.'`');
         }
     }
 

@@ -196,9 +196,6 @@ final class RunPathTest extends TestCase
         $this->bootProvider();
     }
 
-    /**
-     * @param list<Migration> $migrations
-     */
     private function bootProvider(array $migrations = []): void
     {
         $this->attachProvider($migrations);

@@ -98,7 +98,7 @@ final class IndexPresenceTest extends TestCase
     public function testTheSearchIndexDeclarationNamesExactlyTheMatchColumns(): void
     {
         $index = Index::fullText(
-            'howdah_search',
+            'mahout_posts_search',
             IndexColumn::of('post_title'),
             IndexColumn::of('post_excerpt'),
             IndexColumn::of('post_content'),
@@ -107,11 +107,11 @@ final class IndexPresenceTest extends TestCase
         self::assertSame(['post_title', 'post_excerpt', 'post_content'], $index->columnNames());
         self::assertSame(IndexKind::FullText, $index->kind);
         self::assertSame(
-            'ALTER TABLE `wp_posts` ADD FULLTEXT KEY `howdah_search` (`post_title`, `post_excerpt`, `post_content`);',
+            'ALTER TABLE `wp_posts` ADD FULLTEXT KEY `mahout_posts_search` (`post_title`, `post_excerpt`, `post_content`);',
             (new DdlEmitter())->addIndex(Identifier::fromString('wp_posts'), $index),
         );
         self::assertSame(
-            'ALTER TABLE `wp_posts` DROP INDEX `howdah_search`;',
+            'ALTER TABLE `wp_posts` DROP INDEX `mahout_posts_search`;',
             (new DdlEmitter())->dropIndex(Identifier::fromString('wp_posts'), $index),
         );
     }
@@ -120,7 +120,7 @@ final class IndexPresenceTest extends TestCase
     {
         global $wpdb;
 
-        self::assertNotContains('howdah_search', $this->indexNames($wpdb->posts));
+        self::assertNotContains('mahout_posts_search', $this->indexNames($wpdb->posts));
     }
 
     public function testTheFixtureTableNameIsThePrefixedOne(): void

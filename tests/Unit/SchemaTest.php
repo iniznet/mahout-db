@@ -172,7 +172,7 @@ final class SchemaTest extends TestCase
         );
         self::assertSame('UNIQUE KEY `note_key` (`note_key`)', Index::unique('note_key', IndexColumn::of('note_key'))->definition());
         self::assertSame('KEY `field_int` (`value_int`)', Index::key('field_int', IndexColumn::of('value_int'))->definition());
-        self::assertSame('FULLTEXT KEY `howdah_search` (`post_title`)', Index::fullText('howdah_search', IndexColumn::of('post_title'))->definition());
+        self::assertSame('FULLTEXT KEY `mahout_posts_search` (`post_title`)', Index::fullText('mahout_posts_search', IndexColumn::of('post_title'))->definition());
     }
 
     public function testAnIndexPrefixLengthIsEmittedInTheDefinition(): void

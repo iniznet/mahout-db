@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Iniznet\Mahout\Db;
 
+use Iniznet\Mahout\Db\Contracts\Migration;
 use Iniznet\Mahout\Db\Contracts\MigrationStore;
 use Iniznet\Mahout\Db\Contracts\OrphanSource;
 use Iniznet\Mahout\Db\Contracts\SchemaVersionStore;
@@ -16,6 +17,7 @@ use Iniznet\Mahout\Db\Exception\InvalidOrphanSourceList;
 use Iniznet\Mahout\Db\Exception\InvalidSchemaVersion;
 use Iniznet\Mahout\Db\Internal\OptionSearchIndexPresence;
 use Iniznet\Mahout\Db\Internal\OptionSweepCursor;
+use Iniznet\Mahout\Db\Internal\SearchIndexFinder;
 use Iniznet\Mahout\Db\Internal\WordPressSchemaVersionStore;
 use Iniznet\Mahout\Db\Internal\WpdbConnection;
 use Iniznet\Mahout\Db\Internal\WpdbMigrationStore;
@@ -59,6 +61,8 @@ final class DbProvider implements ServiceProvider
         $connection = WpdbConnection::inWordPress();
         $emitter = new DdlEmitter();
         $ledger = MigrationLedgerSchema::table($connection->prefix(), $connection->charsetCollate());
+        $index = SearchIndex::onPosts($connection->prefix());
+        $finder = new SearchIndexFinder($connection, $index);
 
         // Declared by contract: the key is the interface the consumer's
         // constructor names, not the implementation class it may not depend on.
@@ -66,10 +70,7 @@ final class DbProvider implements ServiceProvider
         $container->set(service: new WpdbMigrationStore($connection, $emitter, $ledger), id: MigrationStore::class);
         $container->set(service: new WordPressSchemaVersionStore(), id: SchemaVersionStore::class);
         $container->set(service: new WpdbTableGateway($connection), id: TableGateway::class);
-        $container->set(
-            service: new OptionSearchIndexPresence($connection, SearchIndex::onPosts($connection->prefix())),
-            id: SearchIndexPresence::class,
-        );
+        $container->set(service: new OptionSearchIndexPresence($finder), id: SearchIndexPresence::class);
         $container->set(service: new OptionSweepCursor(), id: SweepCursor::class);
         $container->set($emitter);
     }

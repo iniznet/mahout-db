@@ -82,14 +82,14 @@ final class DdlEmitterTest extends TestCase
     {
         $emitter = new DdlEmitter();
         $table = Identifier::fromString('wp_posts');
-        $index = Index::fullText('howdah_search', IndexColumn::of('post_title'), IndexColumn::of('post_excerpt'), IndexColumn::of('post_content'));
+        $index = Index::fullText('mahout_posts_search', IndexColumn::of('post_title'), IndexColumn::of('post_excerpt'), IndexColumn::of('post_content'));
 
         self::assertSame(
-            'ALTER TABLE `wp_posts` ADD FULLTEXT KEY `howdah_search` (`post_title`, `post_excerpt`, `post_content`);',
+            'ALTER TABLE `wp_posts` ADD FULLTEXT KEY `mahout_posts_search` (`post_title`, `post_excerpt`, `post_content`);',
             $emitter->addIndex($table, $index),
         );
         self::assertSame(
-            'ALTER TABLE `wp_posts` DROP INDEX `howdah_search`;',
+            'ALTER TABLE `wp_posts` DROP INDEX `mahout_posts_search`;',
             $emitter->dropIndex($table, $index),
         );
     }

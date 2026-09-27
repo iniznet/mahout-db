@@ -53,6 +53,17 @@ final class DdlEmitter
     }
 
     /**
+     * A rename, not a rebuild. Measured on the server this package supports
+     * (MariaDB 11.7): RENAME INDEX on a FULLTEXT key returns immediately and the
+     * index keeps its exact column list, which is what lets an installed site
+     * adopt a different name without rebuilding an index over its posts table.
+     */
+    public function renameIndex(Identifier $table, Identifier $from, Index $to): string
+    {
+        return 'ALTER TABLE '.$table->quoted().' RENAME INDEX '.$from->quoted().' TO '.$to->name->quoted().';';
+    }
+
+    /**
      * A column drop. It is the shape a destructive reversal takes, and the only
      * reason it exists: a migration that drops a column cannot reconstruct its
      * values, so it declares itself irreversible instead of pretending.

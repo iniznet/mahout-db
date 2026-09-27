@@ -383,9 +383,14 @@ theme and `iniznet/mahout-fields` consume them.
   the statements the compile-time rule cannot see. An empty set is refused rather
   than read as "no predicate", because that reading turns the one statement shape
   built for cache priming into a full scan.
-- `AddSearchIndex` adds and drops `FULLTEXT KEY howdah_search` on core's posts
-  table; `OptionSearchIndexPresence` caches the presence in one non-autoloaded
-  option, refreshed from `mahout/db/after_migrate`.
+- `AddSearchIndex` adds and drops `FULLTEXT KEY mahout_posts_search` on core's
+  posts table, and the package contributes it without being asked; a library that
+  mints a site artefact's name from one starter's identity gives every other
+  consumer a `Duplicate key name` fatal it cannot avoid from its own
+  configuration, which is why `RenameSearchIndex` exists. Presence is a covering
+  index over the declared column list — the question `MATCH()` actually asks —
+  cached by `OptionSearchIndexPresence` in one non-autoloaded option, refreshed
+  from `mahout/db/after_migrate`.
 - The indexed search path is here too (ADR-0007): `Search\SearchTerms`,
   `Search\MatchClause`, `Search\IndexedSearchSwap`, `Search\SearchFallbackReport`
   and `Search\SearchProvider`. The `MATCH` column list is read from `SearchIndex`,
