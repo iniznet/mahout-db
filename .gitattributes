@@ -1,0 +1,28 @@
+# What ships to a consumer, and what stays in the repository.
+#
+# A Composer dist is built from the tag's tracked tree, so without these lines every
+# install of every package carries the test suite and the architecture fixtures with it:
+# mahout-devtools alone shipped 350 files, 207 of them fixtures that deliberately contain
+# banned patterns (raw superglobals outside the request boundary, unbounded statements,
+# a second host touching superglobals). Those files declare classes in the family's own
+# namespaces, so a consumer's autoloader census, its search for a symbol, and a static
+# analysis run that globs vendor/ all meet code that exists only to prove a gate fires.
+# The rule that a fixture demonstrates is not the rule the fixture is evidence for; the
+# evidence belongs in the repository, not in the deployed vendor tree.
+#
+# What stays shipped is exactly what consumers reference, verified rather than assumed:
+#   src/, rules/, bin/, stubs/, resources/, templates/  - code, and the rules the arch gate loads
+#   phpstan.neon, phpstan-base.neon, phpstan-arch.neon   - the host's phpstan.neon includes them
+#   rector.php, psalm.xml, .php-cs-fixer.dist.php        - shared config, referenced not copied (19 6)
+#   docs/, languages/, and the artifact set              - README/CHANGELOG/LICENSE/AGENTS and POT files
+# phpstan-arch.neon's parameters.paths is src and rules, and the fixer resolves its paths
+# from the consumer's getcwd() with a per-repository .php-cs-fixer.paths.php override, so
+# nothing here is consulted at the consumer's expense.
+
+/.github/		export-ignore
+/.gitignore		export-ignore
+/composer.lock		export-ignore
+/tests/			export-ignore
+/fixtures/		export-ignore
+/phpunit.xml.dist	export-ignore
+/phpstan-arch-fixtures.neon	export-ignore
