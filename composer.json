@@ -68,11 +68,7 @@
             "@config:check"
         ]
     },
-    "extra": {
-        "branch-alias": {
-            "dev-main": "1.0.x-dev"
-        }
-    },
+    "extra": {},
     "minimum-stability": "dev",
     "prefer-stable": true
 }
