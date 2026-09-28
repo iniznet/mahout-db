@@ -8,30 +8,25 @@
     "packages": [
         {
             "name": "iniznet/mahout-kernel",
-            "version": "1.0.1",
+            "version": "1.0.2",
             "source": {
                 "type": "git",
                 "url": "git@github.com:iniznet/mahout-kernel.git",
-                "reference": "1f45b7ff7cd8a2458e3370ac28bfdd833d2e77e8"
+                "reference": "cac60c5e6ed49ef46a0d2f85d69ea9831675a1ec"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/iniznet/mahout-kernel/zipball/1f45b7ff7cd8a2458e3370ac28bfdd833d2e77e8",
-                "reference": "1f45b7ff7cd8a2458e3370ac28bfdd833d2e77e8",
+                "url": "https://api.github.com/repos/iniznet/mahout-kernel/zipball/cac60c5e6ed49ef46a0d2f85d69ea9831675a1ec",
+                "reference": "cac60c5e6ed49ef46a0d2f85d69ea9831675a1ec",
                 "shasum": ""
             },
             "require": {
                 "php": ">=8.4"
             },
             "require-dev": {
-                "iniznet/mahout-devtools": "^1.0"
+                "iniznet/mahout-devtools": "^2.0"
             },
             "type": "library",
-            "extra": {
-                "branch-alias": {
-                    "dev-main": "1.0.x-dev"
-                }
-            },
             "autoload": {
                 "psr-4": {
                     "Iniznet\\Mahout\\Kernel\\": "src/"
@@ -65,10 +60,10 @@
                     "php vendor/bin/phpunit -c phpunit.xml.dist"
                 ],
                 "hooks:check": [
-                    "php vendor/bin/mahout-devtools hooks:check --source=src --output=docs/reference/hooks.md"
+                    "php vendor/bin/mahout-devtools hooks:check --source=src --outdir=docs/reference"
                 ],
                 "hooks:generate": [
-                    "php vendor/bin/mahout-devtools hooks:generate --source=src --output=docs/reference/hooks.md"
+                    "php vendor/bin/mahout-devtools hooks:generate --source=src --outdir=docs/reference"
                 ],
                 "i18n:check": [
                     "php vendor/bin/mahout-devtools i18n:check --domain=mahout-kernel --source=src --output=languages/mahout-kernel.pot"
@@ -105,7 +100,7 @@
                 "mahout",
                 "wordpress"
             ],
-            "time": "2026-09-28T07:51:08+00:00"
+            "time": "2026-09-28T18:12:44+00:00"
         }
     ],
     "packages-dev": [
@@ -1802,7 +1797,7 @@
             "version": "2.0.1",
             "source": {
                 "type": "git",
-                "url": "https://github.com/iniznet/mahout-devtools.git",
+                "url": "git@github.com:iniznet/mahout-devtools.git",
                 "reference": "faaeab036dca10a7d71d2f39a7b8634b1de9a4bd"
             },
             "dist": {
@@ -1906,10 +1901,6 @@
                 "tooling",
                 "wordpress"
             ],
-            "support": {
-                "source": "https://github.com/iniznet/mahout-devtools/tree/2.0.1",
-                "issues": "https://github.com/iniznet/mahout-devtools/issues"
-            },
             "time": "2026-09-28T17:43:09+00:00"
         },
         {
