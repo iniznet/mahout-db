@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "b06036366bf9e0ffb8a8ebc76963051e",
+    "content-hash": "927a1a09b17c0185ad67c8ceba31f0b3",
     "packages": [
         {
             "name": "iniznet/mahout-kernel",
@@ -1799,16 +1799,16 @@
         },
         {
             "name": "iniznet/mahout-devtools",
-            "version": "1.0.4",
+            "version": "2.0.1",
             "source": {
                 "type": "git",
-                "url": "git@github.com:iniznet/mahout-devtools.git",
-                "reference": "387d4c3ae7fa26b26d19b427ac8d6e4c1b5f39d2"
+                "url": "https://github.com/iniznet/mahout-devtools.git",
+                "reference": "faaeab036dca10a7d71d2f39a7b8634b1de9a4bd"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/iniznet/mahout-devtools/zipball/387d4c3ae7fa26b26d19b427ac8d6e4c1b5f39d2",
-                "reference": "387d4c3ae7fa26b26d19b427ac8d6e4c1b5f39d2",
+                "url": "https://api.github.com/repos/iniznet/mahout-devtools/zipball/faaeab036dca10a7d71d2f39a7b8634b1de9a4bd",
+                "reference": "faaeab036dca10a7d71d2f39a7b8634b1de9a4bd",
                 "shasum": ""
             },
             "require": {
@@ -1824,11 +1824,6 @@
                 "bin/mahout-devtools"
             ],
             "type": "library",
-            "extra": {
-                "branch-alias": {
-                    "dev-main": "1.0.x-dev"
-                }
-            },
             "autoload": {
                 "psr-4": {
                     "Iniznet\\Mahout\\Devtools\\": "src/",
@@ -1863,10 +1858,10 @@
                     "php bin/mahout-devtools test"
                 ],
                 "hooks:check": [
-                    "php bin/mahout-devtools hooks:check --source=fixtures/hooks/source --output=fixtures/hooks/hooks.md"
+                    "php bin/mahout-devtools hooks:check --source=fixtures/hooks/source --outdir=fixtures/hooks"
                 ],
                 "hooks:generate": [
-                    "php bin/mahout-devtools hooks:generate --source=fixtures/hooks/source --output=fixtures/hooks/hooks.md"
+                    "php bin/mahout-devtools hooks:generate --source=fixtures/hooks/source --outdir=fixtures/hooks"
                 ],
                 "i18n:check": [
                     "php bin/mahout-devtools i18n:check --domain=howdah --source=fixtures/i18n/source --output=fixtures/i18n/howdah.pot"
@@ -1911,7 +1906,11 @@
                 "tooling",
                 "wordpress"
             ],
-            "time": "2026-09-28T08:27:22+00:00"
+            "support": {
+                "source": "https://github.com/iniznet/mahout-devtools/tree/2.0.1",
+                "issues": "https://github.com/iniznet/mahout-devtools/issues"
+            },
+            "time": "2026-09-28T17:43:09+00:00"
         },
         {
             "name": "kelunik/certificate",

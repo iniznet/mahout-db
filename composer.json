@@ -25,7 +25,7 @@
         "iniznet/mahout-kernel": "^1.0"
     },
     "require-dev": {
-        "iniznet/mahout-devtools": "^1.0"
+        "iniznet/mahout-devtools": "^2.0"
     },
     "autoload": {
         "psr-4": {
@@ -50,8 +50,8 @@
         "arch": "phpstan analyse -c phpstan.neon --no-progress --memory-limit=2G",
         "rector": "rector --dry-run --no-progress-bar",
         "test": "php vendor/bin/phpunit -c phpunit.xml.dist",
-        "hooks:check": "php vendor/bin/mahout-devtools hooks:check --source=src --output=docs/reference/hooks.md",
-        "hooks:generate": "php vendor/bin/mahout-devtools hooks:generate --source=src --output=docs/reference/hooks.md",
+        "hooks:check": "php vendor/bin/mahout-devtools hooks:check --source=src --outdir=docs/reference",
+        "hooks:generate": "php vendor/bin/mahout-devtools hooks:generate --source=src --outdir=docs/reference",
         "i18n:check": "php vendor/bin/mahout-devtools i18n:check --domain=mahout-db --source=src --output=languages/mahout-db.pot",
         "i18n:generate": "php vendor/bin/mahout-devtools i18n:generate --domain=mahout-db --source=src --output=languages/mahout-db.pot",
         "doctor": "php vendor/bin/mahout-devtools doctor",

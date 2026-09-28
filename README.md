@@ -383,8 +383,8 @@ sources. `mahout/db/before_migrate`, `mahout/db/after_migrate` and
 `mahout/db/migration_failed` report a run; `mahout/db/orphans_collected`
 reports a collection. The provider also observes core's `deleted_post` and the
 package's own `mahout/db/gc`, and `SearchProvider` observes core's
-`posts_search` and `posts_search_orderby`. The generated reference is
-`docs/reference/hooks.md`.
+`posts_search` and `posts_search_orderby`. The generated references are
+`docs/reference/actions.md` and `docs/reference/filters.md`.
 
 ## Compatibility
 

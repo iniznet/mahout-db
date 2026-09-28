@@ -416,5 +416,5 @@ theme and `iniznet/mahout-fields` consume them.
 The canonical planning corpus records the reasoning, the rejected alternatives
 and the delivery roadmap. It is private and is not published with this
 repository, so this document stands alone on purpose. The package-scoped
-decisions are under `docs/decisions/`; the generated hook reference is
-`docs/reference/hooks.md`.
+decisions are under `docs/decisions/`; the generated hook references are
+`docs/reference/actions.md` and `docs/reference/filters.md`.
